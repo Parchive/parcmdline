@@ -1,0 +1,84 @@
+
+Parity Archive - A way to restore missing files in a set.
+
+Copyright (C) 2001  Willem Monsuwe (willem@stack.nl)
+
+This version is released under the GNU Public License.
+See the file COPYING for details.
+
+File format by Stefan Wehlus -
+ initial idea by Tobias Rieper, further suggestions by Kilroy Balore 
+
+Alpha release, version 0.1
+
+
+DESCRIPTION:
+
+This version uses Reed-Solomon coding to make multiple parity volumes from
+the same set of files.
+What this means is that you can recover as many files as you have recovery
+volumes.  Any recovery volumes for that set will do.
+
+
+TYPICAL EXAMPLE OF USE:
+
+You are uploading a rar-archive, Archive.rar to a newsgroup, split into 40
+files.  You decide to make a parity archive with five recovery volumes:
+
+>par add -n5 Archive.PAR Archive.r??
+
+You machine rattles for a minute or two, resulting in one (small)
+Archive.PAR file, and five files Archive.P01 - P05.  You upload these.
+
+People download your files, and the Archive.PAR file to check if they
+downloaded correctly.  Someone runs par to check if he got all files:
+
+>par check Archive.PAR
+
+It reports that three files are missing, and he would need three parity
+volumes to recover them.  He tries to download these, and he gets
+Archive.P02, .P04 and .P05.  Then he runs par to recover those files:
+
+>par recover Archive.PAR
+
+His machine rattles for a minute or two, and all his files are restored.
+
+
+NOTES:
+
+- This version of par never overwrites an existing file.  It can, however,
+  move files out of the way (with the -m flag)
+- Par will also search for files with different filenames (by the md5
+  checksum), and can give those files their correct name (with -f)
+  Searching for missing files could take some time, if there are lots of
+  files in the directory
+- Par will only work with files in the current directory.
+- Par can also check and recover from old-style PAR archives, but it's not
+  done very gracefully.
+
+
+REED-SOLOMON CODING:
+
+The file rs.doc contains sort of an explanation on how the encoding works.
+Also, all Reed-Solomon related stuff is in one file, rs.c, with a single
+interface function.  This should make it easy to write different RS-based
+recovery archive programs.
+
+
+TODO:
+
+- Make par search for 'matching' PXX volumes (i.e. that have the same set
+  of files) in case someone later added extra volumes, or if the .PAR file
+  is missing.
+- Write a better explanation of how Reed-Solomon coding works (see rs.doc)
+
+
+COMPILING:
+
+You're pretty much on your own here.
+There's a small Makefile, and the code uses as few special things as possible.
+GCC should be able to compile it on most Unices.
+
+As this is a testing version, and the spec is going to change soon, not
+much effort has been made for portability.
+
