@@ -11,7 +11,6 @@
 #define FILEOPS_H
 
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "types.h"
@@ -44,4 +43,4 @@ hfile_t *read_dir(char *dir);
 i64 file_read(file_t f, void *buf, i64 n);
 i64 file_write(file_t f, void *buf, i64 n);
 
-#endif FILEOPS_H
+#endif

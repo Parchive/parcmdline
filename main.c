@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <string.h>
 #include "rwpar.h"
 #include "checkpar.h"
 #include "makepar.h"
