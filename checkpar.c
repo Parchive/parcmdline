@@ -40,7 +40,7 @@ check_par(par_t *par)
 		fprintf(stderr, "\nToo many missing files:\n");
 		for (p = par->files; p; p = p->next) {
 			if (!p->match && USE_FILE(p))
-				fprintf(stderr, " %s\n", stuni(p->filename));
+				fprintf(stderr, " %s\n", basename(p->filename));
 		}
 		return -1;
 	}
@@ -52,7 +52,7 @@ check_par(par_t *par)
 	for (p = par->files; p; p = p->next) {
 		if ((!p->match) && USE_FILE(p))
 			fprintf(stderr, "  %-40s - can be restored\n",
-				stuni(p->filename));
+				basename(p->filename));
 	}
 	return 1;
 }

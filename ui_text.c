@@ -121,26 +121,30 @@ get_cmd(void)
 	int c;
 	int idx;
 
-	while (!EOL(cc))
-		cc = getchar();
+	do {
+		while (!EOL(cc))
+			cc = getchar();
 
-	if (cc == EOF)
-		return CMD_QUIT;
+		if (cc == EOF)
+			return CMD_QUIT;
 
-	l = cmds;
-	r = cmds + NO_CMDS - 1;
-	for (idx = 0;; idx++) {
-		cc = getchar();
-		if (!isalnum(cc))
-			break;
-		c = toupper(cc);
-		while (c > l->str[idx])
-			if (++l > r)
-				return CMD_UNKNOWN;
-		while (c < r->str[idx])
-			if (--r < l)
-				return CMD_UNKNOWN;
-	}
+		putchar('>'); fflush(stdout);
+
+		l = cmds;
+		r = cmds + NO_CMDS - 1;
+		for (idx = 0;; idx++) {
+			cc = getchar();
+			if (!isalnum(cc))
+				break;
+			c = toupper(cc);
+			while (c > l->str[idx])
+				if (++l > r)
+					return CMD_UNKNOWN;
+			while (c < r->str[idx])
+				if (--r < l)
+					return CMD_UNKNOWN;
+		}
+	} while (idx == 0);
 	if (r > l)
 		return CMD_AMBIGUOUS;
 	return l->cmd;
@@ -298,7 +302,19 @@ ui_text(void)
 		print_list(filelist);
 		break;
 	case CMD_CHECK:
-		print_errcode(par_check(get_entry(filelist)));
+		e = get_entry(filelist);
+		if (e) {
+			print_errcode(par_check(e));
+		} else if (filelist) {
+			int i;
+			for (i = 0; filelist[i]; i++) {
+				printf("CHECK ");
+				print_string(filelist[i]);
+				print_errcode(par_check(filelist[i]));
+			}
+		} else {
+			printf("ERROR: No filelist.\n");
+		}
 		break;
 	case CMD_FIND:
 		print_string(par_find(get_entry(filelist)));

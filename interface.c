@@ -31,11 +31,14 @@ par_load(u16 *filename)
 
 	if (!filename) return PAR_ERR_INVALID;
 
-	for (p = volumes; p; p = p->next)
-		if (!unicode_cmp(p->filename, filename))
-			return PAR_ERR_ALREADY_LOADED;
 	par = read_par_header(filename, 1, 0, 0);
 	if (!par) return PAR_ERR_ERRNO;
+	for (p = volumes; p; p = p->next) {
+		if (!unicode_cmp(p->filename, par->filename)) {
+			free_par(par);
+			return PAR_ERR_ALREADY_LOADED;
+		}
+	}
 	CNEW(p, 1);
 	p->match = find_file_name(par->filename, 0);
 	p->vol_number = par->vol_number;
@@ -43,7 +46,7 @@ par_load(u16 *filename)
 	if (par->files)
 		p->fnrs = file_numbers(&files, &par->files);
 	p->f = par->f;
-	p->filename = unicode_copy(filename);
+	p->filename = unicode_copy(par->filename);
 	par->f = 0;
 	free_par(par);
 

@@ -243,6 +243,18 @@ file_seek(file_t f, i64 off)
 	return do_seek(f);
 }
 
+
+char *
+complete_path(char *path)
+{
+#ifdef PATH_MAX
+	static u8 buf[PATH_MAX];
+	if (realpath(path, buf))
+		return buf;
+#endif
+	return path;
+}
+
 /*\ Read a directory.
 |*|  Returns a linked list of file entries.
 \*/
@@ -252,13 +264,20 @@ read_dir(char *dir)
 	DIR *d;
 	struct dirent *de;
 	hfile_t *rd = 0, **rdptr = &rd;
+	u16 *p;
+	int l;
+	l = strlen(dir);
 
 	d = opendir(dir);
 	if (!d) return 0;
 
 	while ((de = readdir(d))) {
 		CNEW(*rdptr, 1);
-		unistr(de->d_name, (*rdptr)->filename);
+		NEW(p, l + strlen(de->d_name) + 2);
+		unistr(dir, p);
+		p[l] = DIR_SEP;
+		unistr(de->d_name, p + l + 1);
+		(*rdptr)->filename = p;
 		rdptr = &((*rdptr)->next);
 	}
 	closedir(d);

@@ -10,6 +10,8 @@
 #ifndef FILEOPS_H
 #define FILEOPS_H
 
+#define DIR_SEP '/'
+
 #include <sys/types.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -21,7 +23,8 @@ struct hfile_s {
 	md5 hash;
 	i64 file_size;
 	i64 magic;
-	u16 filename[FILENAME_MAX];
+	u16 *filename;
+	char *dir;
 	u8 hashed;
 };
 
@@ -53,6 +56,7 @@ i64 file_md5(u16 *file, md5 block);
 int file_md5_buffer(u16 *file, md5 block, u8 *buf, i64 size);
 int file_add_md5(file_t f, i64 md5off, i64 off, i64 len);
 int file_get_md5(file_t f, i64 off, md5 block);
+char * complete_path(char *path);
 hfile_t *read_dir(char *dir);
 i64 file_read(file_t f, void *buf, i64 n);
 i64 file_write(file_t f, void *buf, i64 n);

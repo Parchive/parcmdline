@@ -236,7 +236,7 @@ main(int argc, char *argv[])
 			cmd.action = ACTION_ADDING;
 			break;
 		case ACTION_ADDING:
-			par_add_file(par, find_file_path(argv[1], 1));
+			par_add_file(par, find_file_name(unist(argv[1]), 1));
 			break;
 		case ACTION_MIX:
 			fprintf(stderr, "Unknown argument: '%s'\n", argv[1]);
