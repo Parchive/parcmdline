@@ -143,7 +143,6 @@ static pfile_t *
 par_find_volume(par_t *par, u16 vol)
 {
 	pfile_t **v;
-	int nd = 2;
 
 	if (!vol)
 		return 0;
@@ -177,7 +176,6 @@ par_find_volume(par_t *par, u16 vol)
 int
 par_make_pxx(par_t *par)
 {
-	pxx_t *pxx;
 	pfile_t *p, *v;
 	u16 nf;
 

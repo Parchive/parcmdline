@@ -26,7 +26,7 @@ static int
 check_pxx(pxx_t *pxx)
 {
 	int m;
-	pfile_t volume, *missing = 0, *p;
+	pfile_t *missing = 0, *p;
 
 	file_close(pxx->f);
 	pxx->f = 0;
@@ -70,11 +70,9 @@ check_pxx(pxx_t *pxx)
 int
 check_par(par_t *par)
 {
-	i64 i, m, mvol, tvol;
-	hfile_t **match;
+	i64 m, mvol, tvol;
 	pfile_t *p, *v;
 	int fail = 0;
-	par_t *pxx;
 
 	if (IS_PXX(*par))
 		return check_pxx((pxx_t *)par);

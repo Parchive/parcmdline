@@ -203,7 +203,6 @@ hash_all_files(char *dir)
 int
 hash_file(hfile_t *file, char type)
 {
-	int i;
 	i64 s;
 
 	if (type < HASH16K) return 1;
@@ -840,7 +839,6 @@ write_pxx_header(pxx_t *pxx)
 	file_t f;
 	pxx_t data;
 	pfile_t *p;
-	size_t s;
 	int i;
 
 	if (!IS_PXX(*pxx))
@@ -932,7 +930,7 @@ write_par_header(par_t *par)
 int
 restore_files(pfile_t *files, pfile_t *volumes)
 {
-	int N, M, i, j, k;
+	int N, M, i, j;
 	xfile_t *in, *out;
 	pfile_t *p, *v;
 	int fail = 0;

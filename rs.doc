@@ -113,10 +113,64 @@ So will the result of the second array.  We can then use the second array as
 multipliers for the input files.
 
 
+5 - An example
+
+Suppose you have five values: A, B, C, D, E
+You want to add three checksums to this: X, Y, Z
+
+So the equations become:
+
+1:  1*A +  1*B +  1*C +  1*D +  1*E = X
+2:  1*A +  2*B +  3*C +  4*D +  5*E = Y
+3:  1*A +  4*B +  9*C + 16*D + 25*E = Z
+
+Now, we're missing some values: B, C, D
+We make the following equations:
+
+1:  1*A +  1*B +  1*C +  1*D +  1*E =  0*A +  0*E  + 1*X  + 0*Y  + 0*Z
+2:  1*A +  2*B +  3*C +  4*D +  5*E =  0*A +  0*E  + 0*X  + 1*Y  + 0*Z
+3:  1*A +  4*B +  9*C + 16*D + 25*E =  0*A +  0*E  + 0*X  + 0*Y  + 1*Z
+
+First, we can subtract the A's and E's from both sides:
+
+1:  0*A +  1*B +  1*C +  1*D +  0*E = -1*A + -1*E +  1*X +  0*Y +  0*Z
+2:  0*A +  2*B +  3*C +  4*D +  0*E = -1*A + -5*E +  0*X +  1*Y +  0*Z
+3:  0*A +  4*B +  9*C + 16*D +  0*E = -1*A +-25*E +  0*X +  0*Y +  1*Z
+
+Then, we divide the first row by 1 (it remains the same)
+
+1:  0*A +  1*B +  1*C +  1*D +  0*E = -1*A + -1*E +  1*X +  0*Y +  0*Z
+
+And we subtract it from the other rows (multiplied by 2 and 4 respectively:
+
+2:  0*A +  0*B +  1*C +  2*D +  0*E =  1*A + -3*E + -2*X +  1*Y +  0*Z
+3:  0*A +  0*B +  5*C + 12*D +  0*E =  3*A +-21*E + -4*X +  0*Y +  1*Z
+
+Same goes for the second row (divide by 1, subtract multiplied by 1 and 5):
+
+2:  0*A +  0*B +  1*C +  2*D +  0*E =  1*A + -3*E + -2*X +  1*Y +  0*Z
+ 
+1:  0*A +  1*B +  0*C + -1*D +  0*E = -2*A +  2*E +  3*X + -1*Y +  0*Z
+3:  0*A +  0*B +  0*C +  2*D +  0*E = -2*A + -6*E +  6*X + -5*Y +  1*Z
+
+And for the third row (divide by 2, subtract multiplied by -1 and 2):
+
+3:  0*A +  0*B +  0*C +  1*D +  0*E = -1*A + -3*E +  3*X + -2.5*Y +  0.5*Z
+
+1:  0*A +  1*B +  0*C +  0*D +  0*E = -3*A + -1*E +  6*X + -3.5*Y +  0.5*Z
+2:  0*A +  0*B +  1*C +  0*D +  0*E =  3*A +  3*E + -8*X +  6  *Y + -1  *Z
+
+We can simplify this to:
+
+B = -3*A + -1*E +  6*X + -3.5*Y +  0.5*Z
+C =  3*A +  3*E + -8*X +  6  *Y + -1  *Z
+D = -1*A + -3*E +  3*X + -2.5*Y +  0.5*Z
+
+
 Appendix A - Galois Fields
 
 All through this document, we were doing calculations on bytes.  Because we
-don't want roundoff errors and whatnot, we need to have a form of
+don't want roundoff/cutoff errors and whatnot, we need to have a form of
 'calculation' that behaves like we would expect, but stays within the 0-255
 range.  This is called a Galois Field.
 

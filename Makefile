@@ -1,5 +1,5 @@
 
-CFLAGS=-g -W -Wall -Wno-unused -O2
+CFLAGS=-g -W -Wall -O2
 
 par: checkpar.o makepar.o rwpar.o rs.o md5.o fileops.o main.o
 	$(CC) -o $@ $^

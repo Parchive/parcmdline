@@ -185,7 +185,6 @@ read_dir(char *dir)
 	DIR *d;
 	struct dirent *de;
 	hfile_t *rd = 0, **rdptr = &rd;
-	int rdn = 0, rds = 0;
 
 	d = opendir(dir);
 	if (!d) return 0;

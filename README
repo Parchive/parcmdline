@@ -3,13 +3,16 @@ Parity Archive - A way to restore missing files in a set.
 
 Copyright (C) 2001  Willem Monsuwe (willem@stack.nl)
 
+The source code can be downloaded from parchive.sourceforge.net
+as par-v0.2alpha.tar.gz
+
 This version is released under the GNU Public License.
-See the file COPYING for details.
+See the file COPYING (in the source code archive) for details.
 
 File format by Stefan Wehlus -
  initial idea by Tobias Rieper, further suggestions by Kilroy Balore 
 
-Alpha release, version 0.1
+Alpha release, version 0.2
 
 
 DESCRIPTION:
@@ -64,6 +67,10 @@ Also, all Reed-Solomon related stuff is in one file, rs.c, with a single
 interface function.  This should make it easy to write different RS-based
 recovery archive programs.
 
+You can look at the following link:
+``A Tutorial on Reed-Solomon Coding for Fault-Tolerance in RAID-like Systems''
+<http://www.cs.utk.edu/~plank/plank/papers/CS-96-332.html>
+
 
 TODO:
 
@@ -78,6 +85,9 @@ COMPILING:
 You're pretty much on your own here.
 There's a small Makefile, and the code uses as few special things as possible.
 GCC should be able to compile it on most Unices.
+
+It also compiles for MS-DOS, using DJGPP (http://www.delorie.com/djgpp/) and
+it's been tested on a Win98SE box.
 
 As this is a testing version, and the spec is going to change soon, not
 much effort has been made for portability.
