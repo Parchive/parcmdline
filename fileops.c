@@ -285,13 +285,11 @@ read_dir(char *dir)
 
 	if (dir[0]) {
 		dir = complete_path(dir);
+		l = strlen(dir);
 	} else {
 		dir = complete_path(".");
-	}
-	l = strlen(dir);
-	if (l == 0) {
-		l = -1;
-		dir = ".";
+		l = strlen(dir);
+		if (l <= 1) l = -1;
 	}
 
 	d = opendir(dir);

@@ -257,7 +257,7 @@ dump_par(par_t *par)
 /*\
 |*| Static directory list
 \*/
-static hfile_t *hfile = 0;
+hfile_t *hfile = 0;
 
 /*\
 |*| Rename a file, and move the directory entry with it.

@@ -19,6 +19,51 @@
 #include <string.h>
 
 static pfile_t *volumes = 0, *files = 0;
+extern hfile_t *hfile;
+
+/*\ Get the current flags
+|*|  Returns: Current flags
+\*/
+int
+par_flags(void)
+{
+	int ret = 0;
+
+	if (cmd.move)		ret |= PARFLAG_MOVE;
+	if (cmd.usecase)	ret |= PARFLAG_CASE;
+	if (cmd.ctrl)		ret |= PARFLAG_CTRL;
+	if (cmd.keep)		ret |= PARFLAG_KEEP;
+
+	return ret;
+}
+
+/*\ Set some flags
+|*|  Returns: Current flags
+\*/
+int
+par_setflags(int flags)
+{
+	if (flags & PARFLAG_MOVE)	cmd.move = 1;
+	if (flags & PARFLAG_CASE)	cmd.usecase = 1;
+	if (flags & PARFLAG_CTRL)	cmd.ctrl = 1;
+	if (flags & PARFLAG_KEEP)	cmd.keep = 1;
+
+	return par_flags();
+}
+
+/*\ Set some flags
+|*|  Returns: Current flags
+\*/
+int
+par_unsetflags(int flags)
+{
+	if (flags & PARFLAG_MOVE)	cmd.move = 0;
+	if (flags & PARFLAG_CASE)	cmd.usecase = 0;
+	if (flags & PARFLAG_CTRL)	cmd.ctrl = 0;
+	if (flags & PARFLAG_KEEP)	cmd.keep = 0;
+
+	return par_flags();
+}
 
 /*\ Add a PARfile to the current parlist.
 |*|   filename: Name of file to load
@@ -360,4 +405,24 @@ par_create(u16 *entry)
 	if (restore_files(files, volumes) < 0)
 		return PAR_ERR_FAILED;
 	return PAR_OK;
+}
+
+/*\ List the current directories
+|*|  Returns: Array of filenames, NULL-terminated.
+|*|   Notes: Calles should free() returned array.
+\*/
+u16 **
+par_dirlist(void)
+{
+	u16 **ret;
+	hfile_t *p;
+	int n;
+
+	for (n = 0, p = hfile; p; p = p->next)
+		n++;
+	CNEW(ret, n + 1);
+	for (n = 0, p = hfile; p; p = p->next, n++)
+		ret[n] = p->filename;
+	ret[n] = 0;
+	return ret;
 }

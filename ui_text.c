@@ -18,13 +18,18 @@
 
 static u16 **parlist = 0;
 static u16 **filelist = 0;
+static u16 **dirlist = 0;
 
 enum {
+	CMD_FLAGS,
+	CMD_SETFLAGS,
+	CMD_UNSETFLAGS,
 	CMD_LOAD,
 	CMD_SEARCH,
 	CMD_UNLOAD,
 	CMD_PARLIST,
 	CMD_FILELIST,
+	CMD_DIRLIST,
 	CMD_CHECK,
 	CMD_FIND,
 	CMD_FIXNAME,
@@ -45,11 +50,15 @@ static struct cmds {
 	char *str;
 	int cmd;
 } cmds[] = {
+	{ "FLAGS",	CMD_FLAGS },
+	{ "SETFLAGS",	CMD_SETFLAGS },
+	{ "UNSETFLAGS",	CMD_UNSETFLAGS },
 	{ "LOAD",	CMD_LOAD },
 	{ "SEARCH",	CMD_SEARCH },
 	{ "UNLOAD",	CMD_UNLOAD },
 	{ "PARLIST",	CMD_PARLIST },
 	{ "FILELIST",	CMD_FILELIST },
+	{ "DIRLIST",	CMD_DIRLIST },
 	{ "CHECK",	CMD_CHECK },
 	{ "FIND",	CMD_FIND },
 	{ "FIXNAME",	CMD_FIXNAME },
@@ -70,11 +79,15 @@ static void
 print_help(void)
 {
 	printf(
+"FLAGS              : Show the current flags (with numbers).\n"
+"SETFLAGS <n>       : Set flag number <n>.\n"
+"UNSETFLAGS <n>     : Unset flag number <n>.\n"
 "LOAD <filename>    : Add a (new) PAR file to the current list.\n"
 "SEARCH             : Search for PAR files matching the current filelist.\n"
 "UNLOAD <entry>     : Remove a PAR file from the list.\n"
 "PARLIST            : Show the current list of PAR files.\n"
 "FILELIST           : Show the current list of data files.\n"
+"DIRLIST            : Show the currently cached directory entries.\n"
 "CHECK <entry>      : Check the MD5sum of a file.\n"
 "FIND <entry>       : Find a file by its filename.\n"
 "FIXNAME [<entry>]  : Fix faulty filenames [of <entry>].\n"
@@ -248,6 +261,26 @@ print_errcode(int code)
 }
 
 static void
+print_flags(int flags)
+{
+	static char *flag_list[] = {
+		"MOVE",
+		"CASE",
+		"CTRL",
+		"KEEP",
+	};
+	unsigned int i;
+
+	for (i = 0; i < (sizeof(flag_list) / sizeof(*flag_list)); i++)
+	{
+		if (i > 0) printf(", ");
+		if (!(flags & (1 << i))) printf("NO");
+		printf("%s(%d)", flag_list[i], 1 << i);
+	}
+	printf("\n");
+}
+
+static void
 print_string(u16 *str)
 {
 	while (*str)
@@ -282,6 +315,15 @@ ui_text(void)
 	cc = '\n';
 
 	for (;;) switch (get_cmd()) {
+	case CMD_FLAGS:
+		print_flags(par_flags());
+		break;
+	case CMD_SETFLAGS:
+		print_flags(par_setflags(get_number()));
+		break;
+	case CMD_UNSETFLAGS:
+		print_flags(par_unsetflags(get_number()));
+		break;
 	case CMD_LOAD:
 		print_errcode(par_load(get_str()));
 		break;
@@ -301,6 +343,11 @@ ui_text(void)
 		filelist = par_filelist();
 		print_list(filelist);
 		break;
+	case CMD_DIRLIST:
+		if (dirlist) free(dirlist);
+		dirlist = par_dirlist();
+		print_list(dirlist);
+		break;
 	case CMD_CHECK:
 		e = get_entry(filelist);
 		if (e) {
@@ -317,7 +364,19 @@ ui_text(void)
 		}
 		break;
 	case CMD_FIND:
-		print_string(par_find(get_entry(filelist)));
+		e = get_entry(filelist);
+		if (e) {
+			print_string(par_find(e));
+		} else if (filelist) {
+			int i;
+			for (i = 0; filelist[i]; i++) {
+				printf("FIND ");
+				print_string(filelist[i]);
+				print_string(par_find(filelist[i]));
+			}
+		} else {
+			printf("ERROR: No filelist.\n");
+		}
 		break;
 	case CMD_FIXNAME:
 		print_errcode(par_fixname(get_entry(filelist)));

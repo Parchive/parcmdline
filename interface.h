@@ -27,6 +27,26 @@
 #define PAR_ERR_CLASH			8
 #define PAR_ERR_INVALID			9
 
+#define PARFLAG_MOVE	0x1
+#define PARFLAG_CASE	0x2
+#define PARFLAG_CTRL	0x4
+#define PARFLAG_KEEP	0x8
+
+/*\ Get the current flags
+|*|  Returns: Current flags
+\*/
+int par_flags(void);
+
+/*\ Set some flags
+|*|  Returns: Current flags
+\*/
+int par_setflags(int flags);
+
+/*\ Set some flags
+|*|  Returns: Current flags
+\*/
+int par_unsetflags(int flags);
+
 /*\ Add a PARfile to the current parlist.
 |*|   filename: Name of file to load
 \*/
@@ -108,5 +128,11 @@ int par_addpars(u16 *entry, int number);
 |*|   entry(optional): only create this entry
 \*/
 int par_create(u16 *entry);
+
+/*\ List the current directories
+|*|  Returns: Array of filenames, NULL-terminated.
+|*|   Notes: Calles should free() returned array.
+\*/
+u16 ** par_dirlist(void);
 
 #endif /*\ INTERFACE_H \*/
