@@ -429,7 +429,7 @@ find_volumes(pxx_t *pxx, int tofind)
 	if (pxx->version < 0x80)
 		return 1;
 	fprintf(stderr, "\nLooking for PXX volumes:\n");
-	for (p = hfile; p; p = p->next) {
+	for (p = hfile; p && (m < tofind); p = p->next) {
 		tmp = read_pxx_header(stuni(p->filename), 0, 0, 1);
 		if (!tmp) continue;
 		if (files_equal(tmp->files, pxx->files)) {
@@ -449,7 +449,6 @@ find_volumes(pxx_t *pxx, int tofind)
 			}
 		}
 		free_pxx(tmp);
-		if (m >= tofind) return m;
 	}
 	return m;
 }

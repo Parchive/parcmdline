@@ -74,10 +74,8 @@ You can look at the following link:
 
 TODO:
 
-- Make par search for 'matching' PXX volumes (i.e. that have the same set
-  of files) in case someone later added extra volumes, or if the .PAR file
-  is missing.
 - Write a better explanation of how Reed-Solomon coding works (see rs.doc)
+- Check if it compiles on something like a PPC (non-aligned access issues)
 
 
 COMPILING:
