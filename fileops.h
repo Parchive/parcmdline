@@ -20,6 +20,7 @@ struct hfile_s {
 	md5 hash_16k;
 	md5 hash;
 	i64 file_size;
+	i64 magic;
 	u16 filename[FILENAME_MAX];
 	u8 hashed;
 };
@@ -49,7 +50,7 @@ int file_exists(u16 *file);
 int file_delete(u16 *file);
 int file_seek(file_t f, i64 off);
 i64 file_md5(u16 *file, md5 block);
-int file_md5_16k(u16 *file, md5 block);
+int file_md5_buffer(u16 *file, md5 block, u8 *buf, i64 size);
 int file_add_md5(file_t f, i64 md5off, i64 off, i64 len);
 int file_get_md5(file_t f, i64 off, md5 block);
 hfile_t *read_dir(char *dir);

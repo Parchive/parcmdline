@@ -300,12 +300,15 @@ int
 hash_file(hfile_t *file, char type)
 {
 	i64 s;
+	u8 buf[16384];
 
 	if (type < HASH16K) return 1;
 	if (file->hashed < HASH16K) {
-		if (!file_md5_16k(file->filename, file->hash_16k))
+		if (!file_md5_buffer(file->filename, file->hash_16k,
+					buf, sizeof(buf)))
 			return 0;
 		file->hashed = HASH16K;
+		COPY(&file->magic, buf, 1);
 	}
 	if (type < HASH) return 1;
 	if (file->hashed < HASH) {
@@ -646,8 +649,36 @@ create_par_header(u16 *file, i64 vol)
 	par->vol_number = vol;
 	par->filename = unicode_copy(file);
 	par->comment = uni_empty;
+	par->control_hash_offset = 0x20;
 
 	return par;
+}
+
+int
+par_control_check(par_t *par)
+{
+	md5 hash;
+
+	if (!cmd.ctrl) return 1;
+
+	/*\ Check version number \*/
+	if (par->version > 0x0001ffff) {
+		fprintf(stderr, "%s: PAR Version mismatch! (%x.%x)\n",
+				stuni(par->filename), par->version >> 16,
+				(par->version & 0xffff) >> 8);
+		return 0;
+	}
+
+	/*\ Check md5 control hash \*/
+	if ((!file_get_md5(par->f, par->control_hash_offset, hash) ||
+			!CMP_MD5(par->control_hash, hash)))
+	{
+		fprintf(stderr, "%s: PAR file corrupt:"
+				"control hash mismatch!\n",
+				stuni(par->filename));
+		return 0;
+	}
+	return 1;
 }
 
 /*\
@@ -658,7 +689,6 @@ par_t *
 read_par_header(u16 *file, int create, i64 vol, int silent)
 {
 	par_t par, *r;
-	md5 hash;
 
 	par.f = file_open(file, 0);
 	/*\ Read in the first part of the struct, it fits directly on top \*/
@@ -693,36 +723,19 @@ read_par_header(u16 *file, int create, i64 vol, int silent)
 	}
 	par_endian_read(&par);
 
-	/*\ Check version number \*/
-	if (cmd.ctrl && (par.version > 0x0001ffff)) {
-		if (!silent)
-			fprintf(stderr, "%s: PAR Version mismatch! (%x.%x)\n",
-					stuni(file), par.version >> 16,
-					(par.version & 0xffff) >> 8);
+	par.control_hash_offset = 0x20;
+
+	if (!silent && !par_control_check(&par)) {
 		file_close(par.f);
 		return 0;
 	}
 
-	/*\ Check md5 control hash \*/
-	if (cmd.ctrl && (!file_get_md5(par.f, 0x20, hash) ||
-			!CMP_MD5(par.control_hash, hash)))
-	{
-		if (!silent)
-			fprintf(stderr, "%s: PAR file corrupt:"
-					"control hash mismatch!\n",
-					stuni(file));
-		file_close(par.f);
-		return 0;
-	}
-
-	if (cmd.ctrl || (par.file_list != PAR_FIX_HEAD_SIZE))
-		file_seek(par.f, par.file_list);
+	file_seek(par.f, par.file_list);
 
 	/*\ Read in the filelist. \*/
 	par.files = read_pfiles(par.f, par.file_list_size);
 
-	if (par.data != par.file_list + par.file_list_size)
-		file_seek(par.f, par.data);
+	file_seek(par.f, par.data);
 
 	par.filename = unicode_copy(file);
 
@@ -1013,6 +1026,9 @@ find_volumes(par_t *par, int tofind)
 	}
 
 	for (p = hfile; p; p = p->next) {
+		if ((p->hashed >= HASH16K) && !IS_PAR(*p)
+				&& !is_old_par(&p->magic))
+			continue;
 		tmp = read_par_header(p->filename, 0, 0, 1);
 		if (!tmp) continue;
 		if (tmp->vol_number && files_match(par->files, tmp->files, 0)) {
@@ -1020,6 +1036,12 @@ find_volumes(par_t *par, int tofind)
 				if (v->vol_number == tmp->vol_number)
 					break;
 			if (v) continue;
+			if (!par_control_check(tmp)) {
+				fprintf(stderr, "  %-40s - CORRUPT\n",
+					stuni(p->filename));
+				free_par(tmp);
+				continue;
+			}
 			CNEW(v, 1);
 			v->match = p;
 			v->vol_number = tmp->vol_number;
@@ -1056,13 +1078,21 @@ find_par_files(pfile_t **volumes, pfile_t **files, int part)
 	}
 
 	for (p = hfile; p; p = p->next) {
+		if ((p->hashed >= HASH16K) && !IS_PAR(*p)
+				&& !is_old_par(&p->magic))
+			continue;
 		for (v = *volumes; v; v = v->next)
 			if (!unicode_cmp(v->filename, p->filename))
 				break;
 		if (v) continue;
 		tmp = read_par_header(p->filename, 0, 0, 1);
 		if (!tmp) continue;
-		if (tmp->vol_number && files_match(*files, tmp->files, part)) {
+		if (tmp->vol_number && files_match(*files, tmp->files, part))
+		{
+			if (!par_control_check(tmp)) {
+				free_par(tmp);
+				continue;
+			}
 			CNEW(v, 1);
 			v->match = p;
 			v->vol_number = tmp->vol_number;
@@ -1103,10 +1133,18 @@ find_all_par_files(void)
 	}
 
 	for (p = hfile; p; p = p->next) {
-		tmp = read_par_header(p->filename, 0, 0, 1);
-		if (!tmp)
+		if ((p->hashed >= HASH16K) && !IS_PAR(*p)
+				&& !is_old_par(&p->magic))
 			continue;
+		tmp = read_par_header(p->filename, 0, 0, 1);
+		if (!tmp) continue;
 		if (tmp->vol_number) {
+			if (!par_control_check(tmp)) {
+				fprintf(stderr, "  %-40s - CORRUPT\n",
+					stuni(p->filename));
+				free_par(tmp);
+				continue;
+			}
 			CNEW(v, 1);
 			v->match = p;
 			v->vol_number = tmp->vol_number;

@@ -16,6 +16,7 @@
 #include "util.h"
 #include "fileops.h"
 #include <stdlib.h>
+#include <string.h>
 
 static pfile_t *volumes = 0, *files = 0;
 

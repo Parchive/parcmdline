@@ -312,15 +312,14 @@ file_md5(u16 *file, md5 block)
 }
 
 int
-file_md5_16k(u16 *file, md5 block)
+file_md5_buffer(u16 *file, md5 block, u8 *buf, i64 size)
 {
-	u8 buf[16384];
 	file_t f;
 	i64 s;
 
 	f = file_open(file, 0);
 	if (!f) return 0;
-	s = file_read(f, buf, sizeof(buf));
+	s = file_read(f, buf, size);
 	file_close(f);
 	if (s < 0) return 0;
 	return (md5_buffer(buf, s, block) != 0);
@@ -359,9 +358,15 @@ file_add_md5(file_t f, i64 md5off, i64 off, i64 len)
 int
 file_get_md5(file_t f, i64 off, md5 block)
 {
+	i64 i, tmp = f->off;
+
 	f->s_off = off;
 	if (do_open(f) < 0)
 		return 0;
-	return (md5_stream(f->f, block) != 0);
+	i = md5_stream(f->f, block);
+	f->s_off = tmp;
+	if (cmd.close) do_close(f);
+
+	return (i != 0);
 }
 

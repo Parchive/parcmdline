@@ -27,6 +27,7 @@ struct par_s {
 	i64 data;
 	i64 data_size;
 
+	i64 control_hash_offset;
 	pfile_t *files;
 	pfile_t *volumes;
 	u16 *filename;

@@ -136,7 +136,6 @@ read_old_par(file_t f, u16 *file, int silent)
 	u8 buf[8];
 	int px;
 	par_t par, *r;
-	md5 hash;
 
 	file_read(f, buf, 4);
 	px = is_old_par(buf);
@@ -166,14 +165,14 @@ read_old_par(file_t f, u16 *file, int silent)
 		par.data_size = read_i64(buf);
 	}
 	file_read(f, par.control_hash, 16);
-	if (cmd.ctrl && (!file_get_md5(f, px ? 0x40 : 0x36, hash) ||
-			!CMP_MD5(par.control_hash, hash))) {
-		if (!silent)
-			fprintf(stderr, "Old-style PAR file corrupt:"
-					"control hash mismatch!\n");
+
+	par.control_hash_offset = px ? 0x40 : 0x36;
+
+	if (!silent && !par_control_check(&par)) {
 		file_close(f);
 		return 0;
 	}
+
 	if (file_seek(f, par.file_list) < 0) {
 		if (!silent) {
 			fprintf(stderr, "Unable to seek in PAR file");
