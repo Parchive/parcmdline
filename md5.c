@@ -20,6 +20,11 @@
 
 /* Written by Ulrich Drepper <drepper@gnu.ai.mit.edu>, 1995.  */
 
+/* Some changes:
+ *   - fix really long streams (64-bit)
+ *   - different endianess handling
+ * Willem Monsuwe <willem@stack.nl>, 2001 */
+
 #include <string.h>
 #include <sys/types.h>
 
@@ -28,15 +33,18 @@
 
 #include "md5.h"
 
-#if __BYTE_ORDER == __BIG_ENDIAN
-# define WORDS_BIGENDIAN 1
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+# define WORDS_LITTLE_ENDIAN 1
 #endif
 
-#ifdef WORDS_BIGENDIAN
-# define SWAP(n)							\
-    (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
-#else
+#ifdef WORDS_LITTLE_ENDIAN
 # define SWAP(n) (n)
+#else /* works on any endianness, as long as SWAP(SWAP(n)) == n */
+# define SWAP(n)		\
+    ((((u8 *)(&n))[0] << 24) |	\
+     (((u8 *)(&n))[1] << 16) |	\
+     (((u8 *)(&n))[2] <<  8) |	\
+     (((u8 *)(&n))[3]))
 #endif
 
 
