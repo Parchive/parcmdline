@@ -135,4 +135,11 @@ int par_create(u16 *entry);
 \*/
 u16 ** par_dirlist(void);
 
+/*\
+|*| Set the smart renaming pattern
+|*|   Note: Optional arguments are to specify pattern,
+|*|         otherwise the pattern is taken from the current list.
+\*/
+int par_setsmart(u16 *from, u16 *to);
+
 #endif /*\ INTERFACE_H \*/

@@ -21,6 +21,7 @@ typedef struct pxx_s pxx_t;
 typedef struct pfile_entr_s pfile_entr_t;
 typedef struct pfile_s pfile_t;
 typedef struct hfile_s hfile_t;
+typedef struct sub_s sub_t;
 
 typedef struct file_s *file_t;
 

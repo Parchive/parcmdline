@@ -15,6 +15,7 @@
 #include <stdlib.h>
 
 #include "interface.h"
+#include "fileops.h"
 
 static u16 **parlist = 0;
 static u16 **filelist = 0;
@@ -40,6 +41,7 @@ enum {
 	CMD_REMOVEFILE,
 	CMD_ADDPARS,
 	CMD_CREATE,
+	CMD_SETSMART,
 	CMD_HELP,
 	CMD_QUIT,
 	CMD_UNKNOWN,
@@ -69,6 +71,7 @@ static struct cmds {
 	{ "REMOVEFILE",	CMD_REMOVEFILE },
 	{ "ADDPARS",	CMD_ADDPARS },
 	{ "CREATE",	CMD_CREATE },
+	{ "SETSMART",	CMD_SETSMART },
 	{ "HELP",	CMD_HELP },
 	{ "QUIT",	CMD_QUIT }
 };
@@ -82,6 +85,7 @@ print_help(void)
 "FLAGS              : Show the current flags (with numbers).\n"
 "SETFLAGS <n>       : Set flag number <n>.\n"
 "UNSETFLAGS <n>     : Unset flag number <n>.\n"
+"SETSMART [<entry> <name>] : Setup handling of consistently misnamed files.\n"
 "LOAD <filename>    : Add a (new) PAR file to the current list.\n"
 "SEARCH             : Search for PAR files matching the current filelist.\n"
 "UNLOAD <entry>     : Remove a PAR file from the list.\n"
@@ -403,6 +407,10 @@ ui_text(void)
 		break;
 	case CMD_CREATE:
 		print_errcode(par_create(get_entry(parlist)));
+		break;
+	case CMD_SETSMART:
+		e = get_entry(filelist);
+		print_errcode(par_setsmart(e, e ? get_str() : 0));
 		break;
 	case CMD_QUIT:
 		return;

@@ -302,6 +302,8 @@ read_par_header(u16 *file, int create, i64 vol, int silent)
 	par_t par, *r;
 	char *path;
 
+	memset(&par, 0, sizeof(par));
+
 	hash_directory(stuni(file));
 	path = complete_path(stuni(file));
 
@@ -531,7 +533,7 @@ write_par_header(par_t *par)
 |*| Restore missing files with recovery volumes
 \*/
 int
-restore_files(pfile_t *files, pfile_t *volumes)
+restore_files(pfile_t *files, pfile_t *volumes, sub_t *sub)
 {
 	int N, M, i;
 	xfile_t *in, *out;
@@ -539,6 +541,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	int fail = 0;
 	i64 size;
 	pfile_t *mis_f, *mis_v;
+	u16 *path;
 
 	/*\ Separate out missing files \*/
 	p = files;
@@ -627,22 +630,23 @@ restore_files(pfile_t *files, pfile_t *volumes)
 
 	/*\ Fill in output files \*/
 	for (i = 0, p = mis_f; p; p = p->next) {
+		path = do_sub(p->filename, sub);
 		/*\ Open output file, but check we don't overwrite anything \*/
-		if (move_away(p->filename, ".bad")) {
+		if (move_away(path, ".bad")) {
 			fprintf(stderr, "      ERROR: %s: ",
-				basename(p->filename));
+				basename(path));
 			fprintf(stderr, "File exists\n");
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
-				basename(p->filename));
+				basename(path));
 			continue;
 		}
-		p->f = file_open(p->filename, 1);
+		p->f = file_open(path, 1);
 		if (!p->f) {
 			fprintf(stderr, "      ERROR: %s: ",
-				basename(p->filename));
+				basename(path));
 			perror("");
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
-				basename(p->filename));
+				basename(path));
 			continue;
 		}
 		out[i].size = p->file_size;
@@ -697,35 +701,36 @@ restore_files(pfile_t *files, pfile_t *volumes)
 		if (!p->f) continue;
 		file_close(p->f);
 		p->f = 0;
-		p->match = hfile_add(p->filename);
+		path = do_sub(p->filename, sub);
+		p->match = hfile_add(path);
 		if (!hash_file(p->match, HASH)) {
 			fprintf(stderr, "      ERROR: %s:",
-					basename(p->filename));
+					basename(path));
 			perror("");
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
-					basename(p->filename));
+					basename(path));
 			fail |= 1;
-			if (!cmd.keep) file_delete(p->filename);
+			if (!cmd.keep) file_delete(path);
 			continue;
 		}
 		if ((p->match->file_size == 0) && (p->file_size != 0)) {
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
-					basename(p->filename));
+					basename(path));
 			fail |= 1;
-			if (!cmd.keep) file_delete(p->filename);
+			if (!cmd.keep) file_delete(path);
 			continue;
 		}
 		if (!CMP_MD5(p->match->hash, p->hash)) {
 			fprintf(stderr, "      ERROR: %s: Failed md5 check\n",
-					basename(p->filename));
+					basename(path));
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
-					basename(p->filename));
+					basename(path));
 			fail |= 1;
-			if (!cmd.keep) file_delete(p->filename);
+			if (!cmd.keep) file_delete(path);
 			continue;
 		}
 		fprintf(stderr, "  %-40s - RECOVERED\n",
-				basename(p->filename));
+				basename(path));
 	}
 
 	/*\ Check resulting volumes \*/

@@ -14,6 +14,15 @@
 #include "types.h"
 #include "par.h"
 
+struct sub_s {
+	sub_t *next;
+	int off;
+	u16 *fs;
+	int fl;
+	u16 *ts;
+	int tl;
+};
+
 char * basename(u16 *path);
 int unicode_cmp(u16 *a, u16 *b);
 int unicode_gt(u16 *a, u16 *b);
@@ -30,5 +39,9 @@ int find_volumes(par_t *par, int tofind);
 void find_par_files(pfile_t **volumes, pfile_t **files, int part);
 par_t * find_all_par_files(void);
 int par_control_check(par_t *par);
+sub_t * make_sub(u16 *from, u16 *to);
+void free_sub(sub_t *sub);
+u16 * do_sub(u16 *from, sub_t *sub);
+sub_t * find_best_sub(pfile_t *files, int m);
 
 #endif /* BACKEND_H */

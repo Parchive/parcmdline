@@ -19,7 +19,7 @@ par_t * read_par_header(u16 *file, int create, i64 vol, int silent);
 void free_file_list(pfile_t *list);
 void free_par(par_t *par);
 file_t write_par_header(par_t *par);
-int restore_files(pfile_t *files, pfile_t *volumes);
+int restore_files(pfile_t *files, pfile_t *volumes, sub_t *sub);
 
 void dump_par(par_t *par);
 

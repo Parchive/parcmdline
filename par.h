@@ -72,6 +72,7 @@ extern struct cmdline {
 	int pxx :1;	/*\ Create PXX volumes \*/
 	int ctrl :1;	/*\ Check/create control hash \*/
 	int keep :1;	/*\ Keep broken files \*/
+	int smart :1;	/*\ Try to be smart about filenames \*/
 	int dash :1;	/*\ End of cmdline switches \*/
 } cmd;
 

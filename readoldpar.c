@@ -144,6 +144,8 @@ read_old_par(file_t f, u16 *file, int silent)
 	par_t par, *r;
 	char *path;
 
+	memset(&par, 0, sizeof(par));
+
 	path = complete_path(stuni(file));
 
 	file_read(f, buf, 4);

@@ -20,6 +20,7 @@
 #include <string.h>
 
 static pfile_t *volumes = 0, *files = 0;
+static sub_t *sub = 0;
 extern hfile_t *hfile;
 
 /*\ Get the current flags
@@ -223,6 +224,7 @@ par_fixname(u16 *entry)
 {
 	int err = PAR_OK;
 	pfile_t *p;
+	u16 *path;
 
 	for (p = files; p; p = p->next) {
 		if (entry && (p->filename != entry))
@@ -231,9 +233,10 @@ par_fixname(u16 *entry)
 			err = PAR_ERR_NOT_FOUND;
 			continue;
 		}
-		if (!unicode_cmp(p->filename, p->match->filename))
+		path = do_sub(p->filename, sub);
+		if (!unicode_cmp(path, p->match->filename))
 			continue;
-		if (rename_away(p->match->filename, p->filename))
+		if (rename_away(p->match->filename, path))
 			err = PAR_ERR_ERRNO;
 	}
 	return err;
@@ -279,7 +282,7 @@ par_recover(u16 *entry)
 {
 	if (entry)
 		return PAR_ERR_IMPL;
-	if (restore_files(files, volumes) < 0)
+	if (restore_files(files, volumes, sub) < 0)
 		return PAR_ERR_FAILED;
 	return PAR_OK;
 }
@@ -403,7 +406,7 @@ par_create(u16 *entry)
 		if (!p->fnrs)
 			p->fnrs = file_numbers(&files, &files);
 	}
-	if (restore_files(files, volumes) < 0)
+	if (restore_files(files, volumes, sub) < 0)
 		return PAR_ERR_FAILED;
 	return PAR_OK;
 }
@@ -426,4 +429,31 @@ par_dirlist(void)
 		ret[n] = p->filename;
 	ret[n] = 0;
 	return ret;
+}
+
+/*\
+|*| Set the smart renaming pattern
+|*|   Note: Optional arguments are to specify pattern,
+|*|         otherwise the pattern is taken from the current list.
+\*/
+int
+par_setsmart(u16 *from, u16 *to)
+{
+	if (!from) {
+		if (!to) {
+			free_sub(sub);
+			sub = find_best_sub(files, 2);
+			return PAR_OK;
+		} else {
+			return PAR_ERR_IMPL;
+		}
+	} else {
+		if (!to) {
+			return PAR_ERR_IMPL;
+		} else {
+			free_sub(sub);
+			sub = make_sub(from, to);
+			return PAR_OK;
+		}
+	}
 }

@@ -39,12 +39,12 @@ usage(void)
 "\n"
 "Options: (Can be turned off with '+')\n"
 "    -m   : Move existing files out of the way\n"
-"    -r   : Recover missing parity volumes as well\n"
 "    -f   : Fix faulty filenames\n"
 "    -p<n>: Number of files per parity volume\n"
 " or -n<n>: Number of parity volumes to create\n"
 "    -d   : Search for duplicate files\n"
 "    -k   : Keep broken files\n"
+"    -s   : Be smart if filenames are consistently different.\n"
 "    +i   : Do not add following files to parity volumes\n"
 "    +c   : Do not create parity volumes\n"
 "    +C   : Ignore case in filename comparisons\n"
@@ -171,6 +171,9 @@ main(int argc, char *argv[])
 				break;
 			case 'k':
 				cmd.keep = cmd.plus;
+				break;
+			case 's':
+				cmd.smart = cmd.plus;
 				break;
 			case '?':
 			case 'h':

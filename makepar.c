@@ -131,7 +131,7 @@ par_make_pxx(par_t *par)
 	for (v = par->volumes; v; v = v->next)
 		v->fnrs = file_numbers(&par->files, &par->files);
 
-	if (restore_files(par->files, par->volumes) < 0)
+	if (restore_files(par->files, par->volumes, 0) < 0)
 		return 0;
 
 	return 1;

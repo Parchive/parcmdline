@@ -19,6 +19,7 @@
 #include "fileops.h"
 #include "rs.h"
 #include "readoldpar.h"
+#include "backend.h"
 #include "md5.h"
 
 /*\
@@ -218,13 +219,10 @@ rename_away(u16 *src, u16 *dst)
 		fprintf(stderr, "    Rename: %s", basename(src));
 		fprintf(stderr, " -> %s : ", basename(dst));
 		fprintf(stderr, "File exists\n");
-		fprintf(stderr, "  %-40s - NOT FIXED\n", basename(dst));
 		return -1;
 	} else if (rename_file(src, dst)) {
-		fprintf(stderr, "  %-40s - NOT FIXED\n", basename(dst));
 		return -1;
 	} else {
-		fprintf(stderr, "  %-40s - FIXED\n", basename(dst));
 		return 0;
 	}
 }
@@ -287,15 +285,10 @@ find_file(pfile_t *file, int displ)
 		if (!file->match) {
 			file->match = p;
 			if (displ) {
-				if (cmd.fix) {
-					rename_away(p->filename,
-							file->filename);
-				} else {
-					fprintf(stderr, "  %-40s - FOUND",
-						basename(file->filename));
-					fprintf(stderr, ": %s\n",
-						stuni(p->filename));
-				}
+				fprintf(stderr, "  %-40s - FOUND",
+					basename(file->filename));
+				fprintf(stderr, ": %s\n",
+					basename(p->filename));
 			}
 			if (!displ || !cmd.dupl)
 				return 1;
@@ -652,4 +645,165 @@ find_all_par_files(void)
 		return 0;
 	}
 	return par;
+}
+
+/*\ Calc sub pattern for a sub string, Return result with rhs tacked on. \*/
+static sub_t *
+make_sub_r(u16 *from, int fl, u16 *to, int tl, int off, sub_t *rhs)
+{
+	int i, j, k, m;
+	int ml, mf, mt;
+	sub_t *ret;
+
+	/*\ Cut off matching front and rear \*/
+	while ((*from == *to) && (fl > 0) && (tl > 0)) {
+		from++;
+		to++;
+		fl--;
+		tl--;
+		off++;
+	}
+	while ((from[fl-1] == to[tl-1]) && (fl > 0) && (tl > 0)) {
+		fl--;
+		tl--;
+	}
+
+	/*\ Complete match \*/
+	if ((fl == 0) && (tl == 0))
+		return rhs;
+
+	/*\ Look for longest match \*/
+	ml = 0, mf = 0, mt = 0;
+	for (i = 0; (fl - i) > ml; i++) {
+		for (j = 0; (tl - j) > ml; j++) {
+			m = (fl - i);
+			if (m > (tl - j)) m = (tl - j);
+			for (k = 0; k < m; k++)
+				if (from[i + k] != to[j + k])
+					break;
+			if (k > ml) {
+				ml = k;
+				mf = i;
+				mt = j;
+			}
+		}
+	}
+	/*\ No match found \*/
+	if (ml == 0) {
+		NEW(ret, 1);
+		ret->next = rhs;
+		ret->off = off;
+		ret->fs = from;
+		ret->fl = fl;
+		ret->ts = to;
+		ret->tl = tl;
+		return ret;
+	}
+	/*\ Match found: recurse with left and right parts \*/
+	ret = make_sub_r(from + mf + ml, fl - (mf + ml),
+			to + mt + ml, tl - (mt + ml), off + mf + ml, rhs);
+	return make_sub_r(from, mf, to, mt, off, ret);
+}
+
+/*\
+|*| Calculate a substitution pattern
+\*/
+sub_t *
+make_sub(u16 *from, u16 *to)
+{
+	int fl, tl;
+
+	for (fl = 0; from[fl]; fl++) ;
+	for (tl = 0; to[tl]; tl++) ;
+	return make_sub_r(from, fl, to, tl, 0, 0);
+}
+
+/*\
+|*|  Free s sub pattern.
+\*/
+void
+free_sub(sub_t *sub)
+{
+	sub_t *t;
+	while (sub) {
+		t = sub;
+		sub = sub->next;
+		free(t);
+	}
+}
+
+/*\
+|*| Pass the string through the substitution pattern
+\*/
+u16 *
+do_sub(u16 *from, sub_t *sub)
+{
+	static u16 *ret = 0;
+	static int retl = 0;
+	int i, fp, rp;
+	sub_t *p;
+
+	for (i = 0; from[i]; i++) ;
+	for (p = sub; p; p = p->next)
+		i += (p->tl - p->fl);
+
+	if (retl < i+1) {
+		retl = i+1;
+		RENEW(ret, retl);
+	}
+
+	fp = rp = 0;
+	for (p = sub; p; p = p->next) {
+		while (fp < p->off) {
+			if (!from[fp])
+				return from;
+			ret[rp++] = from[fp++];
+		}
+		for (i = 0; i < p->fl; i++) {
+			if (from[fp++] != p->fs[i])
+				return from;
+		}
+		for (i = 0; i < p->tl; i++)
+			ret[rp++] = p->ts[i];
+	}
+	while (from[fp])
+		ret[rp++] = from[fp++];
+	ret[rp] = 0;
+	return ret;
+}
+
+/*\
+|*| Look for the sub pattern that makes most of the filenames match.
+|*|  If less than m files match any pattern, 0 is returned.
+\*/
+sub_t *
+find_best_sub(pfile_t *files, int m)
+{
+	sub_t *best, *cur;
+	pfile_t *p, *q;
+	u16 *str;
+	int i;
+
+	best = 0;
+
+	for (p = files; p; p = p->next) {
+		if (!find_file(p, 0))
+			continue;
+		cur = make_sub(p->filename, p->match->filename);
+		i = 0;
+		for (q = files; q; q = q->next) {
+			if (!find_file(q, 0))
+				continue;
+			if (!unicode_cmp(do_sub(q->filename, cur),
+						q->match->filename))
+				i++;
+		}
+		if (i > m) {
+			free_sub(best);
+			best = cur;
+		} else {
+			free_sub(cur);
+		}
+	}
+	return best;
 }

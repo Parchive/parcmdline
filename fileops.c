@@ -263,7 +263,7 @@ file_seek(file_t f, i64 off)
 char *
 complete_path(char *path)
 {
-#ifdef PATH_MAX
+#if 0 /* def PATH_MAX */
 	static u8 buf[PATH_MAX];
 	if (realpath(path, buf))
 		return buf;
