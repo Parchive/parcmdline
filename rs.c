@@ -269,7 +269,7 @@ recreate(xfile_t *in, xfile_t *out)
 				continue;
 			r = file_read(in[i].f, buf, tr);
 			if (r < tr) {
-				fprintf(stderr, "READ ERROR!\n");
+				perror("READ ERROR");
 				free(muls);
 				free(work);
 				return 0;
@@ -293,7 +293,7 @@ recreate(xfile_t *in, xfile_t *out)
 				tr = out[j].size - s;
 			r = file_write(out[j].f, work + (j * sizeof(buf)), tr);
 			if (r < tr) {
-				fprintf(stderr, "WRITE ERROR!\n");
+				perror("WRITE ERROR");
 				free(muls);
 				free(work);
 				return 0;
