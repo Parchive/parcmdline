@@ -394,6 +394,68 @@ find_volume(u16 *name, u16 vol)
 }
 
 /*\
+|*| Check if the two file lists a and b are equal
+\*/
+static int
+files_equal(pfile_t *a, pfile_t *b)
+{
+	while (a || b) {
+		if (!a || !b) return 0;
+		if (a->file_size != b->file_size) return 0;
+		if (!CMP_MD5(a->hash, b->hash)) return 0;
+		if (!CMP_MD5(a->hash_16k, b->hash_16k)) return 0;
+		a = a->next; b = b->next;
+	}
+	return 1;
+}
+
+/*\
+|*| Find all volumes that have the same set of files,
+|*| but different volume numbers
+\*/
+int
+find_volumes(pxx_t *pxx, int tofind)
+{
+	int m;
+	pfile_t *v;
+	hfile_t *p;
+	pxx_t *tmp;
+
+	CNEW(v, 1);
+	v->match = find_file_path(stuni(pxx->filename));
+	v->vol_number = pxx->vol_number;
+	free_file_list(pxx->volumes);
+	pxx->volumes = v;
+	m = 1;
+	if (pxx->version < 0x80)
+		return 1;
+	fprintf(stderr, "\nLooking for PXX volumes:\n");
+	for (p = hfile; p; p = p->next) {
+		tmp = read_pxx_header(stuni(p->filename), 0, 0, 1);
+		if (!tmp) continue;
+		if (files_equal(tmp->files, pxx->files)) {
+			for (v = pxx->volumes; v; v = v->next) {
+				if (v->vol_number == tmp->vol_number)
+					break;
+			}
+			if (!v) {
+				CNEW(v, 1);
+				v->match = p;
+				v->vol_number = tmp->vol_number;
+				v->next = pxx->volumes;
+				pxx->volumes = v;
+				m++;
+				fprintf(stderr, "  %-40s - OK\n",
+					stuni(p->filename));
+			}
+		}
+		free_pxx(tmp);
+		if (m >= tofind) return m;
+	}
+	return m;
+}
+
+/*\
 |*| Rename a file so it's not in the way
 |*|  Append '.bad' because I assume a file that's in the way
 |*|  is a corrupt version.
@@ -519,7 +581,7 @@ create_par_header(char *file)
 |*| (to be freed with free_pxx())
 \*/
 pxx_t *
-read_pxx_header(char *file, par_t *par, u16 vol)
+read_pxx_header(char *file, par_t *par, u16 vol, int silent)
 {
 	pxx_t pxx, *r;
 	i64 i;
@@ -539,7 +601,8 @@ read_pxx_header(char *file, par_t *par, u16 vol)
 	} else {
 		if (!(pxx.f = file_open_ascii(file, 0))) {
 			if (!vol) {
-				perror("Error opening file");
+				if (!silent)
+					perror("Error opening file");
 				return 0;
 			}
 			return create_pxx_header(file, vol);
@@ -548,12 +611,14 @@ read_pxx_header(char *file, par_t *par, u16 vol)
 		|*| it fits directly on top \*/
 		if (file_read(pxx.f, &pxx, PXX_FIX_HEAD_SIZE)
 				< PXX_FIX_HEAD_SIZE) {
-			perror("Error reading file");
+			if (!silent)
+				perror("Error reading file");
 			file_close(pxx.f);
 			return 0;
 		}
 		if (!IS_PXX(pxx)) {
-			fprintf(stderr, "Not a PXX file\n");
+			if (!silent)
+				fprintf(stderr, "Not a PXX file\n");
 			file_close(pxx.f);
 			return 0;
 		}
@@ -563,14 +628,16 @@ read_pxx_header(char *file, par_t *par, u16 vol)
 
 	/*\ Check version number \*/
 	if (pxx.version >= 0x100) {
-		fprintf(stderr, "PXX Version mismatch!\n");
+		if (!silent)
+			fprintf(stderr, "PXX Version mismatch!\n");
 		file_close(pxx.f);
 		return 0;
 	}
 
 	/*\ Check if we have the right volume \*/
 	if (vol && (vol != pxx.vol_number)) {
-		fprintf(stderr, "PXX Volume mismatch!\n");
+		if (!silent)
+			fprintf(stderr, "PXX Volume mismatch!\n");
 		file_close(pxx.f);
 		return 0;
 	}
@@ -580,13 +647,15 @@ read_pxx_header(char *file, par_t *par, u16 vol)
 	NEW(pxx.data, pxx.parity_data);
 	memcpy(pxx.data, &pxx, PXX_FIX_HEAD_SIZE);
 	if (file_read(pxx.f, pxx.data + PXX_FIX_HEAD_SIZE, i) < i) {
-		perror("Error reading file");
+		if (!silent)
+			perror("Error reading file");
 		file_close(pxx.f);
 		return 0;
 	}
 	/*\ Point some pointers into the data block \*/
 	pxx.comment = (u16 *)(pxx.data + PXX_FIX_HEAD_SIZE);
 	pxx.files = read_pfiles(pxx.data + pxx.file_list);
+	pxx.volumes = 0;
 
 	pxx.filename = make_uni_str(file);
 
@@ -622,7 +691,7 @@ read_par_header(char *file, int create)
 		return 0;
 	}
 	if (IS_PXX(par))
-		return (par_t *)read_pxx_header(file, &par, 0);
+		return (par_t *)read_pxx_header(file, &par, 0, 0);
 	/*\ Is it the right file type ? \*/
 	if (!IS_PAR(par)) {
 		fprintf(stderr, "Not a PAR file\n");
@@ -674,7 +743,7 @@ read_par_header(char *file, int create)
 	return r;
 }
 
-static void
+void
 free_file_list(pfile_t *list)
 {
 	pfile_t *next;
@@ -696,6 +765,7 @@ free_pxx(pxx_t *pxx)
 	file_close(pxx->f);
 	free(pxx->data);
 	free_file_list(pxx->files);
+	free_file_list(pxx->volumes);
 	free(pxx->filename);
 	free(pxx);
 }
@@ -898,7 +968,8 @@ restore_files(pfile_t *files, pfile_t *volumes)
 
 			while (!v->match || v->crt)
 				v = v->next;
-			pxx = read_pxx_header(stuni(v->match->filename), 0, 0);
+			pxx = read_pxx_header(stuni(v->match->filename),
+					0, 0, 0);
 			if (!pxx) {
 				fprintf(stderr, "Internal error!\n");
 				return -1;
@@ -951,7 +1022,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 			if (!cmd.rvol) continue;
 		}
 
-		pxx = read_pxx_header(stuni(v->filename), 0, v->vol_number);
+		pxx = read_pxx_header(stuni(v->filename), 0, v->vol_number, 0);
 		if (!pxx) {
 			fprintf(stderr, "  %-40s - FAILED\n",
 					stuni(v->match->filename));

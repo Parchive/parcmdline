@@ -25,7 +25,7 @@
 static int
 check_pxx(pxx_t *pxx)
 {
-	i64 m;
+	int m;
 	pfile_t volume, *missing = 0, *p;
 
 	file_close(pxx->f);
@@ -43,26 +43,25 @@ check_pxx(pxx_t *pxx)
 		fprintf(stderr, "All files found\n");
 		return 0;
 	}
-	if (m == 1) {
-		if (cmd.action != ACTION_CHECK) {
-			memset(&volume, 0, sizeof(volume));
-			volume.match = find_file_path(stuni(pxx->filename));
-			fprintf(stderr, "\n\nRestoring:\n");
-			return restore_files(pxx->files, &volume);
+	if (find_volumes(pxx, m) < m) {
+		fprintf(stderr, "\nToo many missing files:\n");
+		for (p = pxx->files; p; p = p->next) {
+			if (!p->match)
+				fprintf(stderr, " %s\n", stuni(p->filename));
 		}
-		fprintf(stderr, "\nRestorable:\n");
-		fprintf(stderr, "  %-40s - can be restored\n",
-			stuni(missing->filename));
-		return 1;
+		return -1;
 	}
-	fprintf(stderr, "\n\nMultiple missing files:"
-			"(all but one needed for restoring)\n");
+	if (cmd.action != ACTION_CHECK) {
+		fprintf(stderr, "\nRestoring:\n");
+		return restore_files(pxx->files, pxx->volumes);
+	}
+	fprintf(stderr, "\nRestorable:\n");
 	for (p = pxx->files; p; p = p->next) {
 		if (!p->match)
-			fprintf(stderr, " %s\n",
+			fprintf(stderr, "  %-40s - can be restored\n",
 				stuni(p->filename));
 	}
-	return -1;
+	return 1;
 }
 
 /*\
@@ -109,7 +108,8 @@ check_par(par_t *par)
 		for (v = par->volumes; v; v = v->next) {
 			if (!find_file(v, 0))
 				continue;
-			pxx = read_pxx_header(stuni(v->match->filename), 0, 0);
+			pxx = read_pxx_header(stuni(v->match->filename),
+					0, 0, 0);
 			if (!pxx) {
 				fprintf(stderr, "!\n");
 				continue;

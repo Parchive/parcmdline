@@ -10,7 +10,7 @@ clean:
 all: par
 
 install: par
-	install par ~/bin/
+	install par ${HOME}/bin/
 
 main.o: main.c checkpar.h types.h par.h rwpar.h
 checkpar.o: checkpar.c checkpar.h util.h fileops.h types.h endian.h par.h

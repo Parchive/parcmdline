@@ -41,6 +41,7 @@ struct pxx_s {
 
 	u16 *comment;
 	pfile_t *files;
+	pfile_t *volumes;
 	u8 *data;
 	u16 *filename;
 	file_t f;
