@@ -83,7 +83,7 @@ recreate(xfile_t *in, xfile_t *out)
 {
 	int i, j, k, l, M, N, Q, R;
 	u8 *mt, *imt, *muls;
-	u8 buf[0x4000], *work;
+	u8 buf[0x10000], *work;
 	i64 s, size;
 	i64 perc;
 

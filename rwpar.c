@@ -613,10 +613,13 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	i64 i, n;
 	md5 hash;
 
-	if (!(par.f = file_open_ascii(file, 0))) {
-		if (!create) {
+	par.f = file_open_ascii(file, 0);
+	/*\ Read in the first part of the struct, it fits directly on top \*/
+	if (file_read(par.f, &par, PAR_FIX_HEAD_SIZE) < PAR_FIX_HEAD_SIZE) {
+		if (!create || (errno != ENOENT)) {
 			if (!silent)
-				perror("Error opening PAR file");
+				perror("Error reading PAR file");
+			file_close(par.f);
 			return 0;
 		}
 		if (!vol) {
@@ -628,14 +631,6 @@ read_par_header(char *file, int create, i64 vol, int silent)
 				vol = vol * 10 + (*p - '0');
 		}
 		return create_par_header(file, vol);
-	}
-
-	/*\ Read in the first part of the struct, it fits directly on top \*/
-	if (file_read(par.f, &par, PAR_FIX_HEAD_SIZE) < PAR_FIX_HEAD_SIZE) {
-		if (!silent)
-			perror("Error reading file");
-		file_close(par.f);
-		return 0;
 	}
 	/*\ Is it the right file type ? \*/
 	if (!IS_PAR(par)) {

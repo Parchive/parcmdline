@@ -45,6 +45,7 @@ usage(void)
 "    +c   : Do not create parity volumes\n"
 "    +C   : Ignore case in filename comparisons\n"
 "    +H   : Do not check control hashes\n"
+"    -O   : Work around open file limit\n"
 "    -v,+v: Increase or decrease verbosity\n"
 "    -h,-?: Display this help\n"
 "    --   : Always treat following arguments as files\n"
@@ -161,6 +162,9 @@ main(int argc, char *argv[])
 				break;
 			case 'C':
 				cmd.usecase = cmd.plus;
+				break;
+			case 'O':
+				cmd.close = cmd.plus;
 				break;
 			case 'k':
 				cmd.keep = cmd.plus;

@@ -19,6 +19,7 @@
 #include "md5.h"
 #include "fileops.h"
 #include "util.h"
+#include "par.h"
 
 /*\
 |*| Translate an ASCII string into unicode, write it onto the buffer
@@ -111,14 +112,52 @@ file_rename(u16 *src, u16 *dst)
 	return i;
 }
 
+static int
+do_seek(file_t f)
+{
+	if (f->off == f->s_off) return 0;
+	if (!f->f) return 0;
+	if (fseek(f->f, f->s_off, SEEK_SET) < 0)
+		return -1;
+	f->off = f->s_off;
+	return 0;
+}
+
+static int
+do_open(file_t f)
+{
+	int i;
+	if (f->f) return do_seek(f);
+	/*\ This is so complicated to make sure we don't overwrite \*/
+	i = open(f->name, f->wr ? O_RDWR|O_CREAT|O_EXCL : O_RDONLY, 0666);
+	if (i < 0) return -1;
+	f->f = fdopen(i, f->wr ? "w+b" : "rb");
+	f->off = 0;
+	if (!f->f)
+		return -1;
+	return do_seek(f);
+}
+
+static int
+do_close(file_t f)
+{
+	int i;
+	if (!f->f) return 0;
+	i = fclose(f->f);
+	f->f = 0;
+	return i;
+}
+
 file_t
 file_open_ascii(const char *path, int wr)
 {
-	int i;
-	/*\ This is so complicated to make sure we don't overwrite \*/
-	i = open(path, wr ? O_RDWR|O_CREAT|O_EXCL : O_RDONLY, 0666);
-	if (i < 0) return 0;
-	return fdopen(i, wr ? "w+b" : "rb");
+	file_t f;
+
+	CNEW(f, 1);
+	NEW(f->name, strlen(path) + 1);
+	strcpy(f->name, path);
+	f->wr = wr;
+	return f;
 }
 
 file_t
@@ -130,16 +169,22 @@ file_open(const u16 *path, int wr)
 int
 file_close(file_t f)
 {
-	return (f ? fclose(f) : 0);
+	int i;
+	if (!f) return 0;
+	i = do_close(f);
+	free(f->name);
+	free(f);
+	return i;
 }
 
 int
 file_exists(u16 *file)
 {
-	file_t f;
-	f = file_open(file, 0);
+	FILE *f;
+
+	f = fopen(stuni(file), "rb");
 	if (!f) return (errno != ENOENT);
-	file_close(f);
+	fclose(f);
 	return 1;
 }
 
@@ -152,7 +197,8 @@ file_delete(u16 *file)
 int
 file_seek(file_t f, i64 off)
 {
-	return fseek(f, off, SEEK_SET);
+	f->s_off = off;
+	return do_seek(f);
 }
 
 /*\ Read a directory.
@@ -181,15 +227,32 @@ read_dir(char *dir)
 i64
 file_read(file_t f, void *buf, i64 n)
 {
+	i64 i;
 	if (!f) return 0;
-	return fread(buf, 1, n, f);
+	if (do_open(f) < 0)
+		return 0;
+	i = fread(buf, 1, n, f->f);
+	if (i > 0) {
+		f->off += i;
+		f->s_off = f->off;
+	}
+	if (cmd.close) do_close(f);
+	return i;
 }
 
 i64
 file_write(file_t f, void *buf, i64 n)
 {
+	i64 i;
 	if (!f) return 0;
-	return fwrite(buf, 1, n, f);
+	if (do_open(f) < 0)
+		return 0;
+	i = fwrite(buf, 1, n, f->f);
+	if (i > 0) {
+		f->off += i;
+		f->s_off = f->off;
+	}
+	return i;
 }
 
 /*\ Calculate md5 sums on a file \*/
@@ -229,17 +292,24 @@ int
 file_add_md5(file_t f, i64 md5off, i64 off, i64 len)
 {
 	md5 hash;
+	i64 i;
 
-	if (file_seek(f, off) < 0)
+	if (!f) return 0;
+	f->s_off = off;
+	if (do_open(f) < 0)
 		return 0;
-	if (md5_stream(f, hash) < 0)
+	i = md5_stream(f->f, hash);
+	if (i < 0)
 		return 0;
+	f->off += i;
+	f->s_off = f->off;
 	/*\ Filepointer should be at EOF now \*/
-	if ((i64)ftell(f) != len)
+	if (f->off != len)
 		return 0;
 	if (file_seek(f, md5off) < 0)
 		return 0;
-	file_write(f, hash, sizeof(hash));
+	if (file_write(f, hash, sizeof(hash)) < 0)
+		return 0;
 	return 1;
 }
 
@@ -247,8 +317,9 @@ file_add_md5(file_t f, i64 md5off, i64 off, i64 len)
 int
 file_get_md5(file_t f, i64 off, md5 block)
 {
-	if (file_seek(f, off) < 0)
+	f->s_off = off;
+	if (do_open(f) < 0)
 		return 0;
-	return (md5_stream(f, block) != 0);
+	return (md5_stream(f->f, block) != 0);
 }
 

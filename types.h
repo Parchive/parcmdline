@@ -22,6 +22,6 @@ typedef struct pfile_entr_s pfile_entr_t;
 typedef struct pfile_s pfile_t;
 typedef struct hfile_s hfile_t;
 
-typedef FILE *file_t;
+typedef struct file_s *file_t;
 
 #endif /* TYPES_H */

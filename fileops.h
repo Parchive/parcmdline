@@ -24,6 +24,13 @@ struct hfile_s {
 	u8 hashed;
 };
 
+struct file_s {
+	FILE *f;
+	char *name;
+	i64 off, s_off;
+	int wr;
+};
+
 #define HASH16K 1
 #define HASH 2
 
