@@ -106,7 +106,6 @@ write_u16s(u16 *str, void *data, i64 n)
 static void
 par_endian_read(par_t *par)
 {
-#ifndef LITTLE_ENDIAN
 	par->version = read_u32(&par->version);
 	par->client = read_u32(&par->client);
 	par->vol_number = read_i64(&par->vol_number);
@@ -115,7 +114,6 @@ par_endian_read(par_t *par)
 	par->file_list_size = read_i64(&par->file_list_size);
 	par->data = read_i64(&par->data);
 	par->data_size = read_i64(&par->data_size);
-#endif
 }
 
 static void
@@ -123,7 +121,6 @@ par_endian_write(par_t *par, void *data)
 {
 	par_t *p = (par_t *)data;
 	memcpy(p, par, PAR_FIX_HEAD_SIZE);
-#ifndef LITTLE_ENDIAN
 	write_u32(par->version, &p->version);
 	write_u32(par->client, &p->client);
 	write_i64(par->vol_number, &p->vol_number);
@@ -132,7 +129,6 @@ par_endian_write(par_t *par, void *data)
 	write_i64(par->file_list_size, &p->file_list_size);
 	write_i64(par->data, &p->data);
 	write_i64(par->data_size, &p->data_size);
-#endif
 }
 
 static u16 uni_empty[] = { 0 };
@@ -647,9 +643,9 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	/*\ Check version number \*/
 	if (cmd.ctrl && (par.version > 0x0001ffff)) {
 		if (!silent)
-			fprintf(stderr, "%s: PAR Version mismatch! (%x.%2x)\n",
+			fprintf(stderr, "%s: PAR Version mismatch! (%x.%x)\n",
 					file, par.version >> 16,
-					par.version & 0xffff);
+					(par.version & 0xffff) >> 8);
 		file_close(par.f);
 		return 0;
 	}
