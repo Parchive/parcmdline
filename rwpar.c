@@ -645,7 +645,7 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	par_endian_read(&par);
 
 	/*\ Check version number \*/
-	if (par.version > 0x0001ffff) {
+	if (cmd.ctrl && (par.version > 0x0001ffff)) {
 		if (!silent)
 			fprintf(stderr, "%s: PAR Version mismatch! (0x%x)\n",
 					file, par.version);
