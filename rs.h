@@ -21,6 +21,6 @@ struct xfile_s {
 	u16 volnr;
 };
 
-void recreate(xfile_t *in, int N, xfile_t *out, int M);
+int recreate(xfile_t *in, int N, xfile_t *out, int M);
 
 #endif

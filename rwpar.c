@@ -935,7 +935,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	int N, M, i, j, k;
 	xfile_t *in, *out;
 	pfile_t *p, *v;
-	int fail;
+	int fail = 0;
 	size_t size;
 
 	size = 0;
@@ -1036,7 +1036,14 @@ restore_files(pfile_t *files, pfile_t *volumes)
 		if (!out[j].f) {
 			fprintf(stderr, "  %-40s - FAILED\n",
 					stuni(pxx->filename));
+			fail |= 1;
 			continue;
+		}
+		if (v->crt) {
+			v->match = hfile_add(pxx->filename);
+			fprintf(stderr, "  %-40s - OK\n",
+					stuni(pxx->filename));
+			v->filename = v->match->filename;
 		}
 		out[j].filenr = 0;
 		out[j].size = size;
@@ -1045,7 +1052,8 @@ restore_files(pfile_t *files, pfile_t *volumes)
 		j++;
 	}
 
-	recreate(in, N, out, j);
+	if (!fail && !recreate(in, N, out, j))
+		fail |= 1;
 
 	for (i = 0; i < N; i++)
 		file_close(in[i].f);
@@ -1055,7 +1063,6 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	free(in);
 	free(out);
 
-	fail = 0;
 	/*\ Check resulting data files \*/
 	for (p = files; p; p = p->next) {
 		md5 hash;
@@ -1083,30 +1090,30 @@ restore_files(pfile_t *files, pfile_t *volumes)
 
 	if (cmd.rvol) {
 		/*\ Check resulting recovery volumes \*/
-		for (p = volumes; p; p = p->next) {
+		for (v = volumes; v; v = v->next) {
 			md5 hash;
-			if (p->match) continue;
+			if (v->match) continue;
 			/*\ Check the md5 sum of the resulting file \*/
-			if (!file_md5(p->filename, hash)) {
+			if (!file_md5(v->filename, hash)) {
 				fprintf(stderr, "      ERROR: %s:",
-						stuni(p->filename));
+						stuni(v->filename));
 				perror("");
 				fprintf(stderr, "  %-40s - NOT RESTORED\n",
-						stuni(p->filename));
+						stuni(v->filename));
 				fail |= 1;
 				continue;
 			}
-			if (!CMP_MD5(hash, p->hash)) {
+			if (!CMP_MD5(hash, v->hash)) {
 				fprintf(stderr, "      ERROR: %s: "
 						"Failed md5 check\n",
-						stuni(p->filename));
+						stuni(v->filename));
 				fprintf(stderr, "  %-40s - NOT RESTORED\n",
-						stuni(p->filename));
+						stuni(v->filename));
 				fail |= 1;
 				continue;
 			}
 			fprintf(stderr, "  %-40s - RECOVERED\n",
-					stuni(p->filename));
+					stuni(v->filename));
 		}
 	}
 	if (fail) {

@@ -80,7 +80,7 @@ make_lut(u8 lut[0x100], int m)
 #define IMT(i,j)   (imt[((i) * N) + (j)])
 #define MULS(i,j) (muls[((i) * N) + (j)])
 
-void
+int
 recreate(xfile_t *in, int N, xfile_t *out, int M)
 {
 	int i, j, k, R;
@@ -191,7 +191,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 	fprintf(stderr, "0%%"); fflush(stderr);
 	/*\ Process all files \*/
 	for (s = 0; s < size; ) {
-		size_t tr, r, q;
+		ssize_t tr, r, q;
 		u8 *p;
 
 		/*\ Display progress \*/
@@ -208,7 +208,15 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 			tr = sizeof(buf);
 			if (tr > (in[i].size - s))
 				tr = in[i].size - s;
+			if (tr <= 0)
+				continue;
 			r = file_read(in[i].f, buf, tr);
+			if (r < tr) {
+				fprintf(stderr, "READ ERROR!\n");
+				free(muls);
+				free(work);
+				return 0;
+			}
 			for (j = 0; j < M; j++) {
 				u8 lut[0x100];
 				if (s >= out[j].size) continue;
@@ -226,10 +234,17 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 			if (tr > (out[j].size - s))
 				tr = out[j].size - s;
 			r = file_write(out[j].f, work + (j * sizeof(buf)), tr);
+			if (r < tr) {
+				fprintf(stderr, "WRITE ERROR!\n");
+				free(muls);
+				free(work);
+				return 0;
+			}
 		}
 		s += sizeof(buf);
 	}
 	fprintf(stderr, "100%%\n"); fflush(stderr);
 	free(muls);
 	free(work);
+	return 1;
 }

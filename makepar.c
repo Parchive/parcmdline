@@ -86,7 +86,7 @@ pxx_add_file(pxx_t *pxx, hfile_t *file, int displ)
 int
 par_add_file(par_t *par, hfile_t *file)
 {
-	pfile_t **p;
+	pfile_t **p, *v;
 
 	if (IS_PXX(*par))
 		return pxx_add_file((pxx_t *)par, file, 1);
@@ -128,6 +128,9 @@ par_add_file(par_t *par, hfile_t *file)
 		(*p)->status |= 0x01;
 
 	fprintf(stderr, "  %-40s - OK\n", stuni(file->filename));
+
+	for (v = par->volumes; v; v = v->next)
+		v->crt = 1;
 
 	return 1;
 }
@@ -191,17 +194,11 @@ par_make_pxx(par_t *par)
 	for (p = par->files; p; p = p->next)
 		find_file(p, 1);
 
-	restore_files(par->files, par->volumes);
+	if (restore_files(par->files, par->volumes) < 0)
+		return 0;
 
 	/*\ Check the volumes \*/
 	for (v = par->volumes; v; v = v->next) {
-		if (!find_file(v, 0)) {
-			fprintf(stderr, "  %-40s - FAILED\n",
-					stuni(v->filename));
-			continue;
-		}
-		fprintf(stderr, "  %-40s - OK\n",
-				stuni(v->filename));
 		v->match->hashed = 0;
 		if (!hash_file(v->match, HASH))
 			continue;

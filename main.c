@@ -173,9 +173,10 @@ main(int argc, char *argv[])
 		}
 	}
 	if (par) {
-		if (cmd.pxx)
-			par_make_pxx(par);
-		fail = (write_par_header(par) == 0);
+		if (cmd.pxx && !par_make_pxx(par))
+			fail |= 1;
+		if (!fail && !write_par_header(par))
+			fail |= 1;
 		free_par(par);
 	}
 	return fail;
