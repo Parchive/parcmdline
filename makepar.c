@@ -22,12 +22,26 @@
 static u16 uni_empty[] = { 0 };
 
 /*\
+|*| Order two unicode strings (caseless)
+|*| Return 1 if a > b
+\*/
+static int
+unicode_gt(u16 *a, u16 *b)
+{
+	for (; *a || *b; a++, b++) {
+		if (tolower(*a) > tolower(*b)) return 1;
+		if (tolower(*a) < tolower(*b)) return 0;
+	}
+	return 0;
+}
+
+/*\
 |*| Add a data file to a PAR file
 \*/
 int
 par_add_file(par_t *par, hfile_t *file)
 {
-	pfile_t **p, *v;
+	pfile_t *p, **pp;
 
 	if (!file)
 		return 0;
@@ -36,11 +50,12 @@ par_add_file(par_t *par, hfile_t *file)
 				stuni(file->filename));
 		return 0;
 	}
-	for (p = &par->files; *p; p = &((*p)->next)) {
-		switch (unicode_cmp((*p)->filename, file->filename)) {
+	/*\ Check if the file exists \*/
+	for (p = par->files; p; p = p->next) {
+		switch (unicode_cmp(p->filename, file->filename)) {
 		case 0:
-			if (CMP_MD5((*p)->hash, file->hash)) {
-				fprintf(stderr, "  %-40s - ALREADY EXISTS\n",
+			if (CMP_MD5(p->hash, file->hash)) {
+				fprintf(stderr, "  %-40s - EXISTS\n",
 					stuni(file->filename));
 			} else {
 				fprintf(stderr, "  %-40s - NAME CLASH\n",
@@ -48,7 +63,7 @@ par_add_file(par_t *par, hfile_t *file)
 			}
 			return 0;
 		case 1:
-			if (CMP_MD5((*p)->hash, file->hash)) {
+			if (CMP_MD5(p->hash, file->hash)) {
 				fprintf(stderr, "  %-40s - EXISTS\n",
 					stuni(file->filename));
 				return 0;
@@ -56,14 +71,23 @@ par_add_file(par_t *par, hfile_t *file)
 			break;
 		}
 	}
-	CNEW((*p), 1);
-	(*p)->filename = file->filename;
-	(*p)->match = file;
-	(*p)->file_size = file->file_size;
-	COPY((*p)->hash, file->hash, sizeof(md5));
-	COPY((*p)->hash_16k, file->hash_16k, sizeof(md5));
+
+	/*\ Create new entry \*/
+	CNEW(p, 1);
+	p->filename = file->filename;
+	p->match = file;
+	p->file_size = file->file_size;
+	COPY(p->hash, file->hash, sizeof(md5));
+	COPY(p->hash_16k, file->hash_16k, sizeof(md5));
 	if (cmd.add)
-		(*p)->status |= 0x01;
+		p->status |= 0x01;
+
+	/*\ Insert in alphabetically correct place \*/
+	for (pp = &par->files; *pp; pp = &((*pp)->next))
+		if (unicode_gt((*pp)->filename, p->filename))
+			break;
+	p->next = *pp;
+	*pp = p;
 
 	fprintf(stderr, "  %-40s - OK\n", stuni(file->filename));
 

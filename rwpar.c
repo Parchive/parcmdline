@@ -19,6 +19,7 @@
 #include "fileops.h"
 #include "rs.h"
 #include "readoldpar.h"
+#include "md5.h"
 
 /*\ Endianless fixing code \*/
 
@@ -149,14 +150,14 @@ uni_sizeof(u16 *str)
 |*| Compare two unicode strings
 |*| -1: Strings are not equal
 |*|  0: Strings are equal
-|*|  1: Strings only differ in upper/lowercase (only happens with cmd.nocase)
+|*|  1: Strings only differ in upper/lowercase (doesn't happen with cmd.usecase)
 \*/
 int
 unicode_cmp(u16 *a, u16 *b)
 {
 	for (; *a == *b; a++, b++)
 		if (!*a) return 0;
-	if (cmd.nocase)
+	if (!cmd.usecase)
 		for (; tolower(*a) == tolower(*b); a++, b++)
 			if (!*a) return 1;
 	return -1;
@@ -775,6 +776,7 @@ write_par_header(par_t *par)
 	par_t data;
 	pfile_t *p;
 	int i;
+	md5 *hashes;
 
 	/*\ Open output file, but check so we don't overwrite anything \*/
 	if (move_away(par->filename, ".old")) {
@@ -803,13 +805,21 @@ write_par_header(par_t *par)
 		}
 	}
 	/*\ Calculate set hash \*/
-	memset(par->set_hash, 0, sizeof(md5));
 	par->num_files = 0;
-	for (p = par->files; p; p = p->next) {
-		for (i = 0; i < 16; i++)
-			par->set_hash[i] ^= p->hash[i];
+	for (i = 0, p = par->files; p; p = p->next) {
 		par->num_files++;
+		if (USE_FILE(p))
+			i++;
 	}
+	NEW(hashes, i);
+	for (i = 0, p = par->files; p; p = p->next) {
+		if (!USE_FILE(p))
+			continue;
+		COPY(hashes[i], p->hash, sizeof(md5));
+		i++;
+	}
+	md5_buffer((char *)hashes, i * sizeof(md5), par->set_hash);
+	free(hashes);
 
 	if (cmd.loglevel > 1)
 		dump_par(par);

@@ -43,6 +43,7 @@ usage(void)
 "    -k   : Keep broken files\n"
 "    +i   : Do not add following files to parity volumes\n"
 "    +c   : Do not create parity volumes\n"
+"    +C   : Ignore case in filename comparisons\n"
 "    +H   : Do not check control hashes\n"
 "    -v,+v: Increase or decrease verbosity\n"
 "    -h,-?: Display this help\n"
@@ -96,6 +97,7 @@ main(int argc, char *argv[])
 	cmd.pxx = 1;
 	cmd.ctrl = 1;
 	cmd.add = 1;
+	cmd.usecase = 1;
 
 	if (argc == 1) return usage();
 
@@ -156,6 +158,9 @@ main(int argc, char *argv[])
 				break;
 			case 'H':
 				cmd.ctrl = cmd.plus;
+				break;
+			case 'C':
+				cmd.usecase = cmd.plus;
 				break;
 			case 'k':
 				cmd.keep = cmd.plus;
