@@ -62,6 +62,8 @@ main(int argc, char *argv[])
 	cmd.volumes = 5;
 	cmd.pxx = 1;
 
+	if (argc == 1) return usage();
+
 	for (; argc > 1; argc--, argv++) {
 		if (((argv[1][0] == '-') || (argv[1][0] == '+')) &&
 		    argv[1][1] && !cmd.dash) {
