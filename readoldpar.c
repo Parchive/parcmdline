@@ -167,6 +167,8 @@ read_old_par(file_t f, u16 *file, int silent)
 	file_read(f, par.control_hash, 16);
 
 	par.control_hash_offset = px ? 0x40 : 0x36;
+	par.f = f;
+	par.filename = file;
 
 	if (!silent && !par_control_check(&par)) {
 		file_close(f);

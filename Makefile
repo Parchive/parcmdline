@@ -9,6 +9,10 @@ clean:
 
 all: par
 
+par.exe:
+	make clean
+	make CC="dos-gcc -s"
+
 install: par
 	install par ${HOME}/bin/
 

@@ -724,6 +724,7 @@ read_par_header(u16 *file, int create, i64 vol, int silent)
 	par_endian_read(&par);
 
 	par.control_hash_offset = 0x20;
+	par.filename = file;
 
 	if (!silent && !par_control_check(&par)) {
 		file_close(par.f);
