@@ -72,7 +72,6 @@ extern struct cmdline {
 	int pxx :1;	/*\ Create PXX volumes \*/
 	int ctrl :1;	/*\ Check/create control hash \*/
 	int keep :1;	/*\ Keep broken files \*/
-	int close :1;	/*\ Workaround open file limit \*/
 	int dash :1;	/*\ End of cmdline switches \*/
 } cmd;
 

@@ -16,6 +16,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <errno.h>
 #include "md5.h"
 #include "fileops.h"
 #include "util.h"
@@ -166,21 +167,6 @@ do_seek(file_t f)
 }
 
 static int
-do_open(file_t f)
-{
-	int i;
-	if (f->f) return do_seek(f);
-	/*\ This is so complicated to make sure we don't overwrite \*/
-	i = open(f->name, f->wr ? O_RDWR|O_CREAT|O_EXCL : O_RDONLY, 0666);
-	if (i < 0) return -1;
-	f->f = fdopen(i, f->wr ? "w+b" : "rb");
-	f->off = 0;
-	if (!f->f)
-		return -1;
-	return do_seek(f);
-}
-
-static int
 do_close(file_t f)
 {
 	int i;
@@ -188,6 +174,36 @@ do_close(file_t f)
 	i = fclose(f->f);
 	f->f = 0;
 	return i;
+}
+
+static int
+do_open(file_t f)
+{
+	static file_t openfiles = 0;
+	int i;
+	while (!f->f) {
+		/*\ This is so complicated to make sure we don't overwrite \*/
+		i = open(f->name, f->wr ? O_RDWR|O_CREAT|O_EXCL : O_RDONLY,
+				0666);
+		if (i >= 0) f->f = fdopen(i, f->wr ? "w+b" : "rb");
+		if (!f->f) {
+			if ((errno != EMFILE) && (errno != ENFILE))
+				return -1;
+			if (!openfiles)
+				return -1;
+			while (!openfiles->f)
+				openfiles = openfiles->next;
+			do_close(openfiles);
+			openfiles = openfiles->next;
+		} else {
+			f->off = 0;
+			if (!f->wr) {
+				f->next = openfiles;
+				openfiles = f;
+			}
+		}
+	}
+	return do_seek(f);
 }
 
 file_t
@@ -297,7 +313,6 @@ file_read(file_t f, void *buf, i64 n)
 		f->off += i;
 		f->s_off = f->off;
 	}
-	if (cmd.close) do_close(f);
 	return i;
 }
 
@@ -384,7 +399,6 @@ file_get_md5(file_t f, i64 off, md5 block)
 		return 0;
 	i = md5_stream(f->f, block);
 	f->s_off = tmp;
-	if (cmd.close) do_close(f);
 
 	return (i != 0);
 }

@@ -29,6 +29,7 @@ struct hfile_s {
 };
 
 struct file_s {
+	file_t next;
 	FILE *f;
 	char *name;
 	i64 off, s_off;

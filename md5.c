@@ -33,23 +33,6 @@
 
 #include "md5.h"
 
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-# define WORDS_LITTLE_ENDIAN
-#endif
-
-#ifdef WORDS_LITTLE_ENDIAN
-# define SWAP(n) (n)
-#else /* works on any endianness, as long as SWAP(SWAP(n)) == n */
-static int SWAP(int n)
-{
-	return ((((u8 *)(&n))[3] << 24) |
-		(((u8 *)(&n))[2] << 16) |
-		(((u8 *)(&n))[1] <<  8) |
-		(((u8 *)(&n))[0]));
-}
-#endif
-
-
 /* This array contains the bytes used to pad the buffer to the next
    64-byte boundary.  (RFC 1321, 3.1: Step 1)  */
 static const unsigned char fillbuf[64] = { 0x80, 0 /* , 0, 0, ...  */ };
@@ -80,12 +63,26 @@ md5_read_ctx (ctx, resbuf)
      const struct md5_ctx *ctx;
      void *resbuf;
 {
-  ((u32 *) resbuf)[0] = SWAP (ctx->A);
-  ((u32 *) resbuf)[1] = SWAP (ctx->B);
-  ((u32 *) resbuf)[2] = SWAP (ctx->C);
-  ((u32 *) resbuf)[3] = SWAP (ctx->D);
+	u8 *rb = resbuf;
 
-  return resbuf;
+	rb[ 0] = ctx->A & 0xFF;
+	rb[ 1] = (ctx->A >> 8) & 0xFF;
+	rb[ 2] = (ctx->A >> 16) & 0xFF;
+	rb[ 3] = (ctx->A >> 24) & 0xFF;
+	rb[ 4] = ctx->B & 0xFF;
+	rb[ 5] = (ctx->B >> 8) & 0xFF;
+	rb[ 6] = (ctx->B >> 16) & 0xFF;
+	rb[ 7] = (ctx->B >> 24) & 0xFF;
+	rb[ 8] = ctx->C & 0xFF;
+	rb[ 9] = (ctx->C >> 8) & 0xFF;
+	rb[10] = (ctx->C >> 16) & 0xFF;
+	rb[11] = (ctx->C >> 24) & 0xFF;
+	rb[12] = ctx->D & 0xFF;
+	rb[13] = (ctx->D >> 8) & 0xFF;
+	rb[14] = (ctx->D >> 16) & 0xFF;
+	rb[15] = (ctx->D >> 24) & 0xFF;
+
+	return resbuf;
 }
 
 /* Process the remaining bytes in the internal buffer and the usual
@@ -111,9 +108,15 @@ md5_finish_ctx (ctx, resbuf)
   memcpy (&ctx->buffer[bytes], fillbuf, pad);
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  *(u32 *) &ctx->buffer[bytes + pad] = SWAP (ctx->total[0] << 3);
-  *(u32 *) &ctx->buffer[bytes + pad + 4] = SWAP ((ctx->total[1] << 3) |
-							(ctx->total[0] >> 29));
+  *(u8 *) &ctx->buffer[bytes + pad + 0] = (ctx->total[0] << 3) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 1] = (ctx->total[0] >> 5) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 2] = (ctx->total[0] >> 13) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 3] = (ctx->total[0] >> 21) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 4] = ((ctx->total[0] >> 29) & 0xFF) +
+						((ctx->total[1] << 3) & 0xFF);
+  *(u8 *) &ctx->buffer[bytes + pad + 5] = (ctx->total[1] >> 5) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 6] = (ctx->total[1] >> 13) & 0xFF;
+  *(u8 *) &ctx->buffer[bytes + pad + 7] = (ctx->total[1] >> 21) & 0xFF;
 
   /* Process last bytes.  */
   md5_process_block (ctx->buffer, bytes + pad + 8, ctx);
@@ -302,6 +305,12 @@ md5_process_block (buffer, len, ctx)
 	 little endian byte order we perhaps have to change the byte order
 	 before the computation.  To reduce the work for the next steps
 	 we store the swapped words in the array CORRECT_WORDS.  */
+
+#define SWAP(n)				\
+	((((u8 *)(&n))[3] << 24) |	\
+	 (((u8 *)(&n))[2] << 16) |	\
+	 (((u8 *)(&n))[1] <<  8) |	\
+	 (((u8 *)(&n))[0]))
 
 #define OP(a, b, c, d, s, T)						\
       do								\
