@@ -63,26 +63,27 @@ md5_read_ctx (ctx, resbuf)
      const struct md5_ctx *ctx;
      void *resbuf;
 {
-	u8 *rb = resbuf;
+  u8 *rb = resbuf;
+  u32 v;
 
-	rb[ 0] = ctx->A & 0xFF;
-	rb[ 1] = (ctx->A >> 8) & 0xFF;
-	rb[ 2] = (ctx->A >> 16) & 0xFF;
-	rb[ 3] = (ctx->A >> 24) & 0xFF;
-	rb[ 4] = ctx->B & 0xFF;
-	rb[ 5] = (ctx->B >> 8) & 0xFF;
-	rb[ 6] = (ctx->B >> 16) & 0xFF;
-	rb[ 7] = (ctx->B >> 24) & 0xFF;
-	rb[ 8] = ctx->C & 0xFF;
-	rb[ 9] = (ctx->C >> 8) & 0xFF;
-	rb[10] = (ctx->C >> 16) & 0xFF;
-	rb[11] = (ctx->C >> 24) & 0xFF;
-	rb[12] = ctx->D & 0xFF;
-	rb[13] = (ctx->D >> 8) & 0xFF;
-	rb[14] = (ctx->D >> 16) & 0xFF;
-	rb[15] = (ctx->D >> 24) & 0xFF;
+  v = ctx->A;	rb[ 0] = v & 0xFF;
+  v >>= 8;	rb[ 1] = v & 0xFF;
+  v >>= 8;	rb[ 2] = v & 0xFF;
+  v >>= 8;	rb[ 3] = v & 0xFF;
+  v = ctx->B;	rb[ 4] = v & 0xFF;
+  v >>= 8;	rb[ 5] = v & 0xFF;
+  v >>= 8;	rb[ 6] = v & 0xFF;
+  v >>= 8;	rb[ 7] = v & 0xFF;
+  v = ctx->C;	rb[ 8] = v & 0xFF;
+  v >>= 8;	rb[ 9] = v & 0xFF;
+  v >>= 8;	rb[10] = v & 0xFF;
+  v >>= 8;	rb[11] = v & 0xFF;
+  v = ctx->D;	rb[12] = v & 0xFF;
+  v >>= 8;	rb[13] = v & 0xFF;
+  v >>= 8;	rb[14] = v & 0xFF;
+  v >>= 8;	rb[15] = v & 0xFF;
 
-	return resbuf;
+  return resbuf;
 }
 
 /* Process the remaining bytes in the internal buffer and the usual
@@ -97,7 +98,9 @@ md5_finish_ctx (ctx, resbuf)
 {
   /* Take yet unprocessed bytes into account.  */
   u32 bytes = ctx->buflen;
+  u32 v;
   size_t pad;
+  u8 *bp;
 
   /* Now count remaining bytes.  */
   ctx->total[0] += bytes;
@@ -107,16 +110,17 @@ md5_finish_ctx (ctx, resbuf)
   pad = bytes >= 56 ? 64 + 56 - bytes : 56 - bytes;
   memcpy (&ctx->buffer[bytes], fillbuf, pad);
 
+  bp = &ctx->buffer[bytes + pad];
+
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  *(u8 *) &ctx->buffer[bytes + pad + 0] = (ctx->total[0] << 3) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 1] = (ctx->total[0] >> 5) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 2] = (ctx->total[0] >> 13) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 3] = (ctx->total[0] >> 21) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 4] = ((ctx->total[0] >> 29) & 0xFF) +
-						((ctx->total[1] << 3) & 0xFF);
-  *(u8 *) &ctx->buffer[bytes + pad + 5] = (ctx->total[1] >> 5) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 6] = (ctx->total[1] >> 13) & 0xFF;
-  *(u8 *) &ctx->buffer[bytes + pad + 7] = (ctx->total[1] >> 21) & 0xFF;
+  v = ctx->total[0];			bp[0] = (v << 3) & 0xFF;
+  v >>= 5;				bp[1] = v & 0xFF;
+  v >>= 8;				bp[2] = v & 0xFF;
+  v >>= 8;				bp[3] = v & 0xFF;
+  v = (v >> 8) | (ctx->total[1] << 3);	bp[4] = v & 0xFF;
+  v >>= 8;				bp[5] = v & 0xff;
+  v >>= 8;				bp[6] = v & 0xFF;
+  v >>= 8;				bp[7] = v & 0xFF;
 
   /* Process last bytes.  */
   md5_process_block (ctx->buffer, bytes + pad + 8, ctx);
@@ -274,9 +278,8 @@ md5_process_block (buffer, len, ctx)
      struct md5_ctx *ctx;
 {
   u32 correct_words[16];
-  const u32 *words = buffer;
-  size_t nwords = len / sizeof (u32);
-  const u32 *endp = words + nwords;
+  const u8 *words = buffer;
+  const u8 *endp = words + len;
   u32 A = ctx->A;
   u32 B = ctx->B;
   u32 C = ctx->C;
@@ -306,20 +309,17 @@ md5_process_block (buffer, len, ctx)
 	 before the computation.  To reduce the work for the next steps
 	 we store the swapped words in the array CORRECT_WORDS.  */
 
-#define SWAP(n)				\
-	((((u8 *)(&n))[3] << 24) |	\
-	 (((u8 *)(&n))[2] << 16) |	\
-	 (((u8 *)(&n))[1] <<  8) |	\
-	 (((u8 *)(&n))[0]))
-
-#define OP(a, b, c, d, s, T)						\
-      do								\
-        {								\
-	  a += FF (b, c, d) + (*cwp++ = SWAP (*words)) + T;		\
-	  ++words;							\
-	  CYCLIC (a, s);						\
-	  a += b;							\
-        }								\
+#define OP(a, b, c, d, s, T)			\
+      do					\
+        {					\
+	  *cwp = *words++;			\
+	  *cwp |= *words++ << 8;		\
+	  *cwp |= *words++ << 16;		\
+	  *cwp |= *words++ << 24;		\
+	  a += FF (b, c, d) + *cwp++ + T;	\
+	  CYCLIC (a, s);			\
+	  a += b;				\
+        }					\
       while (0)
 
       /* It is unfortunate that C does not provide an operator for
