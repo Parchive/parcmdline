@@ -12,7 +12,7 @@ See the file COPYING (in the source code archive) for details.
 File format by Stefan Wehlus -
  initial idea by Tobias Rieper, further suggestions by Kilroy Balore 
 
-Alpha release, version 0.2
+Beta release, version 0.9
 
 
 DESCRIPTION:
@@ -95,7 +95,6 @@ TODO:
 
 - Write a better explanation of how Reed-Solomon coding works (see rs.doc)
 - Check if it compiles on something like a PPC (non-aligned access issues)
-- Make it read v0.2 filespec parity volumes as well.  (Or make a converter)
 
 
 COMPILING:

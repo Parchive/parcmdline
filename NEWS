@@ -1,3 +1,9 @@
+
+New in v0.9:
+
+- Complies to v1.0 spec
+- Reads old par files as well (v0.2 spec, v0.9 spec)
+
 New in v0.5:
 
 - More error checking, deletes failed output files

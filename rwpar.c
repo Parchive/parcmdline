@@ -593,8 +593,8 @@ create_par_header(char *file, i64 vol)
 
 	CNEW(par, 1);
 	par->magic = PAR_MAGIC;
-	par->version = 0x00000900;
-	par->client = 0x02000500;
+	par->version = 0x00010000;
+	par->client = 0x02000900;
 	par->vol_number = vol;
 	par->filename = make_uni_str(file);
 	par->comment = uni_empty;
@@ -650,9 +650,9 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	par_endian_read(&par);
 
 	/*\ Check version number \*/
-	if (par.version != 0x0900) {
+	if (par.version > 0x0001ffff) {
 		if (!silent)
-			fprintf(stderr, "%s: PAR Version mismatch! (%0x04x)\n",
+			fprintf(stderr, "%s: PAR Version mismatch! (0x%x)\n",
 					file, par.version);
 		file_close(par.f);
 		return 0;
