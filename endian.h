@@ -22,6 +22,20 @@ read_i64(void *data)
 	return r;
 }
 
+static inline u32
+read_u32(void *data)
+{
+	int i;
+	u32 r = 0;
+	u8 *ptr = data;
+
+	for (i = sizeof(u32); --i >= 0; ) {
+		r <<= 8;
+		r += (u32)ptr[i];
+	}
+	return r;
+}
+
 static inline void
 write_i64(i64 v, void *data)
 {
@@ -29,6 +43,18 @@ write_i64(i64 v, void *data)
 	u8 *ptr = data;
 
 	for (i = 0; i < sizeof(i64); i++) {
+		ptr[i] = v & 0xFF;
+		v >>= 8;
+	}
+}
+
+static inline void
+write_u32(u32 v, void *data)
+{
+	size_t i;
+	u8 *ptr = data;
+
+	for (i = 0; i < sizeof(u32); i++) {
 		ptr[i] = v & 0xFF;
 		v >>= 8;
 	}
