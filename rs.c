@@ -272,7 +272,7 @@ recreate(xfile_t *in, xfile_t *out)
 
 	/*\ Check for columns with all-zeroes \*/
 	for (j = 0; j < N; j++) {
-		for (i = 0; i < M; j++)
+		for (i = 0; i < M; i++)
 			if (MULS(i, j))
 				break;
 		/*\ This input file isn't used \*/

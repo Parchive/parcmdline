@@ -9,6 +9,8 @@
 #ifndef PAR_H
 #define PAR_H
 
+#include "types.h"
+
 #define PAR_FIX_HEAD_SIZE	0x60
 #define FILE_ENTRY_FIX_SIZE	0x38
 

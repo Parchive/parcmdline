@@ -18,6 +18,7 @@
 #include "rwpar.h"
 #include "fileops.h"
 #include "rs.h"
+#include "readoldpar.h"
 
 /*\ Endianless fixing code \*/
 
@@ -104,7 +105,7 @@ write_u16s(u16 *str, void *data, i64 n)
 static void
 par_endian_read(par_t *par)
 {
-#ifdef NOT_LITTLE_ENDIAN
+#ifndef LITTLE_ENDIAN
 	par->version = read_u32(&par->version);
 	par->client = read_u32(&par->client);
 	par->vol_number = read_i64(&par->vol_number);
@@ -121,7 +122,7 @@ par_endian_write(par_t *par, void *data)
 {
 	par_t *p = (par_t *)data;
 	memcpy(p, par, PAR_FIX_HEAD_SIZE);
-#ifdef NOT_LITTLE_ENDIAN
+#ifndef LITTLE_ENDIAN
 	write_u32(par->version, &p->version);
 	write_u32(par->client, &p->client);
 	write_i64(par->vol_number, &p->vol_number);
@@ -592,7 +593,7 @@ create_par_header(char *file, i64 vol)
 	CNEW(par, 1);
 	par->magic = PAR_MAGIC;
 	par->version = 0x00000900;
-	par->client = 0x02000400;
+	par->client = 0x02000500;
 	par->vol_number = vol;
 	par->filename = make_uni_str(file);
 	par->comment = uni_empty;
@@ -637,8 +638,11 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	}
 	/*\ Is it the right file type ? \*/
 	if (!IS_PAR(par)) {
+		if (is_old_par(&par))
+			if (file_seek(par.f, 0) >= 0)
+				return read_old_par(par.f, file, silent);
 		if (!silent)
-			fprintf(stderr, "Not a PAR file\n");
+			fprintf(stderr, "%s: Not a PAR file\n", file);
 		file_close(par.f);
 		return 0;
 	}
@@ -647,8 +651,8 @@ read_par_header(char *file, int create, i64 vol, int silent)
 	/*\ Check version number \*/
 	if (par.version != 0x0900) {
 		if (!silent)
-			fprintf(stderr, "PAR Version mismatch! (%0x04x)\n",
-					par.version);
+			fprintf(stderr, "%s: PAR Version mismatch! (%0x04x)\n",
+					file, par.version);
 		file_close(par.f);
 		return 0;
 	}
@@ -658,8 +662,8 @@ read_par_header(char *file, int create, i64 vol, int silent)
 			!CMP_MD5(par.control_hash, hash)))
 	{
 		if (!silent)
-			fprintf(stderr, "PAR file corrupt:"
-					"control hash mismatch!\n");
+			fprintf(stderr, "%s: PAR file corrupt:"
+					"control hash mismatch!\n", file);
 		file_close(par.f);
 		return 0;
 	}
