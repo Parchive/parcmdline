@@ -91,9 +91,9 @@ is_old_par(void *data)
 |*| Read in a PAR file entry to a file struct
 \*/
 static i64
-read_old_pfile(pfile_t *file, u8 *ptr)
+read_old_pfile(pfile_t *file, u8 *ptr, u16 *path, i64 pl)
 {
-	i64 i;
+	i64 i, l;
 
 	file->status = read_i64(ptr + 0x08);
 	file->file_size = read_i64(ptr + 0x10);
@@ -101,18 +101,24 @@ read_old_pfile(pfile_t *file, u8 *ptr)
 	COPY(file->hash_16k, ptr + 0x18, sizeof(md5));
 	for (i = 0; ptr[0x3A + i] || ptr[0x3A + i + 1]; i += 2)
 		;
-	NEW(file->filename, i);
-	read_u16s(file->filename, ptr + 0x3A, i);
+	l = pl + i;
+	NEW(file->filename, l);
+	COPY(file->filename, path, pl);
+	read_u16s(file->filename + pl, ptr + 0x3A, i);
 
 	return read_i64(ptr);
 }
 
 static pfile_t *
-read_old_pfiles(file_t f, i64 size)
+read_old_pfiles(file_t f, i64 size, u16 *path)
 {
 	pfile_t *files = 0, **fptr = &files;
 	u8 *buf;
-	i64 i;
+	i64 i, pl;
+
+	for (pl = i = 0; path[i]; i++)
+		if (path[i] == DIR_SEP)
+			pl = i + 1;
 
 	NEW(buf, size);
 	size = file_read(f, buf, size);
@@ -122,7 +128,7 @@ read_old_pfiles(file_t f, i64 size)
 	/*\ Loop over the entries; the size of an entry is at the start \*/
 	while (i < size) {
 		CNEW(*fptr, 1);
-		i += read_old_pfile(*fptr, buf + i);
+		i += read_old_pfile(*fptr, buf + i, path, pl);
 		fptr = &((*fptr)->next);
 	}
 	free(buf);
@@ -136,6 +142,9 @@ read_old_par(file_t f, u16 *file, int silent)
 	u8 buf[8];
 	int px;
 	par_t par, *r;
+	char *path;
+
+	path = complete_path(stuni(file));
 
 	file_read(f, buf, 4);
 	px = is_old_par(buf);
@@ -183,9 +192,10 @@ read_old_par(file_t f, u16 *file, int silent)
 		file_close(f);
 		return 0;
 	}
+	par.filename = make_uni_str(path);
 	file_read(f, buf, 8);
 	par.file_list_size = read_i64(buf) - 8;
-	par.files = read_old_pfiles(f, par.file_list_size);
+	par.files = read_old_pfiles(f, par.file_list_size, par.filename);
 
 	if (px) {
 		if (par.data != par.file_list + par.file_list_size)
@@ -196,7 +206,6 @@ read_old_par(file_t f, u16 *file, int silent)
 		file_close(f);
 	}
 
-	par.filename = unicode_copy(file);
 	par.volumes = 0;
 
 	NEW(r, 1);

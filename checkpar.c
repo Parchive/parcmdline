@@ -29,9 +29,10 @@ check_par(par_t *par)
 	pfile_t *p;
 
 	/*\ Look for all the data files \*/
-	for (m = 0, p = par->files; p; p = p->next)
-		if (!find_file(p, 1))
+	for (m = 0, p = par->files; p; p = p->next) {
+		if (!find_file(p, 1) && USE_FILE(p))
 			m++;
+	}
 	if (m == 0) {
 		fprintf(stderr, "All files found\n");
 		return 0;

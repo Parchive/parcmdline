@@ -1179,9 +1179,11 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	*pp = *qq = 0;
 	for (i = 1; p; p = p->next, i++) {
 		p->vol_number = i;
+		if (!USE_FILE(p))
+			continue;
 		if (p->file_size > size)
 			size = p->file_size;
-		if (!find_file(p, 0) && USE_FILE(p)) {
+		if (!find_file(p, 0)) {
 			NEW(*qq, 1);
 			COPY(*qq, p, 1);
 			qq = &((*qq)->next);
