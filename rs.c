@@ -225,7 +225,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 				make_lut(lut, MULS(j, i));
 				p = work + (j * sizeof(buf));
 				/*\ XOR it in, passed through the LUTs \*/
-				for (q = 0; q < r; q++)
+				for (q = r; --q >= 0; )
 					p[q] ^= lut[buf[q]];
 			}
 		}
