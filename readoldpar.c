@@ -18,7 +18,7 @@
 #include "util.h"
 #include "fileops.h"
 #include "rs.h"
-#include "rwpar.h"
+#include "backend.h"
 
 /*\ Endianless fixing code \*/
 

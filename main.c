@@ -15,6 +15,7 @@
 #include <string.h>
 #include "fileops.h"
 #include "rwpar.h"
+#include "backend.h"
 #include "checkpar.h"
 #include "makepar.h"
 #include "interface.h"
@@ -33,7 +34,8 @@ usage(void)
 "   par r(ecover) [options] <par file>         : Restore missing volumes\n"
 "   par a(dd)     [options] <par file> [files] : Add files to parity archive\n"
 " Advanced:\n"
-"   par m(ix)    [options] : Try to restore from all parity files at once\n"
+"   par m(ix)     [options] : Try to restore from all parity files at once\n"
+"   par i(nteractive) [<par files>] : Interactive mode (very bare-bones)\n"
 "\n"
 "Options: (Can be turned off with '+')\n"
 "    -m   : Move existing files out of the way\n"

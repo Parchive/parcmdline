@@ -15,8 +15,9 @@
 #include <errno.h>
 #include <string.h>
 #include "util.h"
-#include "rwpar.h"
+#include "backend.h"
 #include "makepar.h"
+#include "rwpar.h"
 #include "fileops.h"
 
 /*\

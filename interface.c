@@ -13,6 +13,7 @@
 #include "interface.h"
 #include "par.h"
 #include "rwpar.h"
+#include "backend.h"
 #include "util.h"
 #include "fileops.h"
 #include <stdlib.h>
