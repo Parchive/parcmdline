@@ -135,7 +135,7 @@ par_endian_write(par_t *par, void *data)
 
 static u16 uni_empty[] = { 0 };
 
-static size_t
+static i64
 uni_sizeof(u16 *str)
 {
 	i64 l;
@@ -413,7 +413,7 @@ find_file(pfile_t *file, int displ)
 |*| Find a file in the static directory structure
 \*/
 hfile_t *
-find_file_path(char *path)
+find_file_path(char *path, int displ)
 {
 	u16 filename[FILENAME_MAX];
 	char *file;
@@ -439,7 +439,7 @@ find_file_path(char *path)
 			ret = p;
 		}
 	}
-	if (!ret)
+	if (!ret && displ)
 		fprintf(stderr, "  %-40s - NOT FOUND\n", stuni(filename));
 	return ret;
 }
@@ -453,7 +453,7 @@ hfile_t *
 find_volume(u16 *name, i64 vol)
 {
 	u16 filename[FILENAME_MAX];
-	size_t i;
+	i64 i;
 	hfile_t *p, *ret = 0;
 	int nd, v;
 
@@ -914,7 +914,7 @@ find_volumes(par_t *par, int tofind)
 	v = 0;
 	if (par->vol_number) {
 		CNEW(v, 1);
-		v->match = find_file_path(stuni(par->filename));
+		v->match = find_file_path(stuni(par->filename), 1);
 		v->vol_number = par->vol_number;
 		v->file_size = par->data_size;
 		v->fnrs = file_numbers(&par->files, &par->files);
@@ -1020,7 +1020,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	xfile_t *in, *out;
 	pfile_t *p, *v, **pp, **qq;
 	int fail = 0;
-	size_t size;
+	i64 size;
 	pfile_t *mis_f, *mis_v;
 
 	/*\ Separate out missing files \*/

@@ -83,7 +83,7 @@ par_make_pxx(par_t *par)
 		return 0;
 	if (par->vol_number) {
 		CNEW(v, 1);
-		v->match = find_file_path(stuni(par->filename));
+		v->match = find_file_path(stuni(par->filename), 0);
 		if (!v->match)
 			v->match = find_volume(par->filename, par->vol_number);
 		v->vol_number = par->vol_number;

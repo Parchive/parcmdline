@@ -52,6 +52,30 @@ usage(void)
 	return 0;
 }
 
+/*\ Sanity check \*/
+static int
+check_sizes(void)
+{
+	int fail = 0;
+	if (sizeof(u8) != 1) {
+		fprintf(stderr, "u8 isn't 8 bits wide.\n");
+		fail++;
+	}
+	if (sizeof(u16) != 2) {
+		fprintf(stderr, "u16 isn't 16 bits wide.\n");
+		fail++;
+	}
+	if (sizeof(u32) != 4) {
+		fprintf(stderr, "u32 isn't 32 bits wide.\n");
+		fail++;
+	}
+	if (sizeof(i64) != 8) {
+		fprintf(stderr, "u64 isn't 64 bits wide.\n");
+		fail++;
+	}
+	return fail;
+}
+
 /*\
 |*| Main loop.  Simple stuff.
 \*/
@@ -61,6 +85,9 @@ main(int argc, char *argv[])
 	par_t *par = 0;
 	int fail = 0;
 	char *p;
+
+	if (check_sizes())
+		return -1;
 
 	/*\ Some defaults \*/
 	memset(&cmd, 0, sizeof(cmd));
@@ -192,7 +219,7 @@ main(int argc, char *argv[])
 			cmd.action = ACTION_ADDING;
 			break;
 		case ACTION_ADDING:
-			par_add_file(par, find_file_path(argv[1]));
+			par_add_file(par, find_file_path(argv[1], 1));
 			break;
 		case ACTION_MIX:
 			fprintf(stderr, "Unknown argument: '%s'\n", argv[1]);

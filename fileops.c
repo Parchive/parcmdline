@@ -86,10 +86,10 @@ stmd5(const md5 hash)
 	return buf;
 }
 
-size_t
-uni_copy(u16 *dst, u16 *src, size_t n)
+i64
+uni_copy(u16 *dst, u16 *src, i64 n)
 {
-	size_t i;
+	i64 i;
 	for (i = 0; src[i] && (i < (n - 1)); i++)
 		dst[i] = src[i];
 	dst[i] = 0;
@@ -193,11 +193,11 @@ file_write(file_t f, void *buf, i64 n)
 }
 
 /*\ Calculate md5 sums on a file \*/
-ssize_t
+i64
 file_md5(u16 *file, md5 block)
 {
 	FILE *f;
-	ssize_t i;
+	i64 i;
 
 	f = fopen(stuni(file), "rb");
 	if (!f) return 0;
@@ -211,7 +211,7 @@ file_md5_16k(u16 *file, md5 block)
 {
 	u8 buf[16384];
 	file_t f;
-	ssize_t s;
+	i64 s;
 
 	f = file_open(file, 0);
 	if (!f) return 0;

@@ -83,10 +83,10 @@ md5_read_ctx (ctx, resbuf)
      const struct md5_ctx *ctx;
      void *resbuf;
 {
-  ((md5_uint32 *) resbuf)[0] = SWAP (ctx->A);
-  ((md5_uint32 *) resbuf)[1] = SWAP (ctx->B);
-  ((md5_uint32 *) resbuf)[2] = SWAP (ctx->C);
-  ((md5_uint32 *) resbuf)[3] = SWAP (ctx->D);
+  ((u32 *) resbuf)[0] = SWAP (ctx->A);
+  ((u32 *) resbuf)[1] = SWAP (ctx->B);
+  ((u32 *) resbuf)[2] = SWAP (ctx->C);
+  ((u32 *) resbuf)[3] = SWAP (ctx->D);
 
   return resbuf;
 }
@@ -102,7 +102,7 @@ md5_finish_ctx (ctx, resbuf)
      void *resbuf;
 {
   /* Take yet unprocessed bytes into account.  */
-  md5_uint32 bytes = ctx->buflen;
+  u32 bytes = ctx->buflen;
   size_t pad;
 
   /* Now count remaining bytes.  */
@@ -114,8 +114,8 @@ md5_finish_ctx (ctx, resbuf)
   memcpy (&ctx->buffer[bytes], fillbuf, pad);
 
   /* Put the 64-bit file length in *bits* at the end of the buffer.  */
-  *(md5_uint32 *) &ctx->buffer[bytes + pad] = SWAP (ctx->total[0] << 3);
-  *(md5_uint32 *) &ctx->buffer[bytes + pad + 4] = SWAP ((ctx->total[1] << 3) |
+  *(u32 *) &ctx->buffer[bytes + pad] = SWAP (ctx->total[0] << 3);
+  *(u32 *) &ctx->buffer[bytes + pad + 4] = SWAP ((ctx->total[1] << 3) |
 							(ctx->total[0] >> 29));
 
   /* Process last bytes.  */
@@ -127,7 +127,7 @@ md5_finish_ctx (ctx, resbuf)
 /* Compute MD5 message digest for bytes read from STREAM.  The
    resulting message digest number will be written into the 16 bytes
    beginning at RESBLOCK.  */
-ssize_t
+i64
 md5_stream (stream, resblock)
      FILE *stream;
      void *resblock;
@@ -137,7 +137,7 @@ md5_stream (stream, resblock)
   struct md5_ctx ctx;
   char buffer[BLOCKSIZE + 72];
   size_t sum;
-  ssize_t tot;
+  i64 tot;
 
   tot = 0;
 
@@ -172,14 +172,14 @@ md5_stream (stream, resblock)
 			BLOCKSIZE % 64 == 0
        */
       md5_process_block (buffer, BLOCKSIZE, &ctx);
-      tot += BLOCKSIZE;
+      tot += (i64)BLOCKSIZE;
     }
 
   /* Add the last bytes if necessary.  */
   if (sum > 0)
     md5_process_bytes (buffer, sum, &ctx);
 
-  tot += sum;
+  tot += (i64)sum;
 
   /* Construct result in desired memory.  */
   md5_finish_ctx (&ctx, resblock);
@@ -273,14 +273,14 @@ md5_process_block (buffer, len, ctx)
      size_t len;
      struct md5_ctx *ctx;
 {
-  md5_uint32 correct_words[16];
-  const md5_uint32 *words = buffer;
-  size_t nwords = len / sizeof (md5_uint32);
-  const md5_uint32 *endp = words + nwords;
-  md5_uint32 A = ctx->A;
-  md5_uint32 B = ctx->B;
-  md5_uint32 C = ctx->C;
-  md5_uint32 D = ctx->D;
+  u32 correct_words[16];
+  const u32 *words = buffer;
+  size_t nwords = len / sizeof (u32);
+  const u32 *endp = words + nwords;
+  u32 A = ctx->A;
+  u32 B = ctx->B;
+  u32 C = ctx->C;
+  u32 D = ctx->D;
 
   /* First increment the byte count.  RFC 1321 specifies the possible
      length of the file up to 2^64 bits.  Here we only compute the
@@ -293,11 +293,11 @@ md5_process_block (buffer, len, ctx)
      the loop.  */
   while (words < endp)
     {
-      md5_uint32 *cwp = correct_words;
-      md5_uint32 A_save = A;
-      md5_uint32 B_save = B;
-      md5_uint32 C_save = C;
-      md5_uint32 D_save = D;
+      u32 *cwp = correct_words;
+      u32 A_save = A;
+      u32 B_save = B;
+      u32 C_save = C;
+      u32 D_save = D;
 
       /* First round: using the given function, the context and a constant
 	 the next context is computed.  Because the algorithms processing

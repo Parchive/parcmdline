@@ -1,0 +1,13 @@
+New in v0.5:
+
+- More error checking, deletes failed output files
+- New command (par mix):
+    Read all parity archives in the current directory, and
+    combine all of them to try to recover as many files as possible.
+
+New in v0.4:
+
+- Complies to v0.9 file spec.
+- Control hash implemented.
+- The ability to not include certain files in the .pxx files (+i flag)
+

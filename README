@@ -47,17 +47,36 @@ Archive.P02, .P04 and .P05.  Then he runs par to recover those files:
 His machine rattles for a minute or two, and all his files are restored.
 
 
+HINT FOR WINDOWS USERS:
+
+If you make a file 'par.bat' which contains the following line:
+
+ par.exe r -- %1
+
+You can associate this with .par files, so it will automatically
+recover files from the .par file you doubleclick on.
+
+
 NOTES:
 
 - This version of par never overwrites an existing file.  It can, however,
-  move files out of the way (with the -m flag)
+move files out of the way (with the -m flag)
+
 - Par will also search for files with different filenames (by the md5
-  checksum), and can give those files their correct name (with -f)
-  Searching for missing files could take some time, if there are lots of
-  files in the directory
+checksum), and can give those files their correct name (with -f)
+Searching for missing files could take some time, if there are lots of
+files in the directory
+
 - Par will only work with files in the current directory.
-- Par can also check and recover from old-style PAR archives, but it's not
-  done very gracefully.
+
+- Par can try to recover files using parity volumes from different sources:
+
+>par m
+
+This has a pretty decent chance of working, but it's not guaranteed to work.
+It will try to locate every single parity volume in the current directory,
+throwing them together to try to recover as many files from them as possible.
+If you use this in a large dir, Par might try to open too many files and fail.
 
 
 REED-SOLOMON CODING:
@@ -76,6 +95,7 @@ TODO:
 
 - Write a better explanation of how Reed-Solomon coding works (see rs.doc)
 - Check if it compiles on something like a PPC (non-aligned access issues)
+- Make it read v0.2 filespec parity volumes as well.  (Or make a converter)
 
 
 COMPILING:
