@@ -20,28 +20,22 @@
 |*| Calculations over a Galois Field, GF(8)
 \*/
 
-u8 gl[0x100], ge[0x100];
+u8 gl[0x100], ge[0x200];
 
 /*\ Multiply: a*b = exp(log(a) + log(b)) \*/
 static int
 gmul(int a, int b)
 {
-	int i;
 	if ((a == 0) || (b == 0)) return 0;
-	i = gl[a] + gl[b];
-	if (i > 255) i -= 255;
-	return ge[i];
+	return ge[gl[a] + gl[b]];
 }
 
 /*\ Divide: a/b = exp(log(a) - log(b)) \*/
 static int
 gdiv(int a, int b)
 {
-	int i;
 	if ((a == 0) || (b == 0)) return 0;
-	i = gl[a] - gl[b];
-	if (i < 0) i += 255;
-	return ge[i];
+	return ge[gl[a] - gl[b] + 255];
 }
 
 /*\ Power: a^b = exp(log(a) * b) \*/
@@ -65,7 +59,8 @@ ginit(void)
 		b += b;
 		if (b & 0x100) b ^= 0x11d;
 	}
-	ge[0xff] = ge[0];
+	for (l = 0xff; l < 0x200; l++)
+		ge[l] = ge[l - 0xff];
 }
 
 /*\ Fill in a LUT \*/
@@ -73,8 +68,9 @@ static void
 make_lut(u8 lut[0x100], int m)
 {
 	int j;
-	for (j = 0; j < 0x100; j++)
-		lut[j] = gmul(j, m);
+	for (j = 0x100; --j; )
+		lut[j] = ge[gl[m] + gl[j]];
+	lut[0] = 0;
 }
 
 #define MT(i,j)     (mt[((i) * N) + (j)])
@@ -221,6 +217,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 			for (j = 0; j < M; j++) {
 				u8 lut[0x100];
 				if (s >= out[j].size) continue;
+				if (!MULS(j, i)) continue;
 				/*\ Precalc LUT \*/
 				make_lut(lut, MULS(j, i));
 				p = work + (j * sizeof(buf));
