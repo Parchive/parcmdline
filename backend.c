@@ -117,15 +117,7 @@ hfile_add(u16 *filename)
 void
 hash_directory(char *dir)
 {
-	char c, *cp, *dp;
 	hfile_t *p, *q, **pp;
-
-	/*\ Strip off from last dir separator \*/
-	for (cp = dir, dp = dir; *dp; dp++)
-		if (*dp == DIR_SEP)
-			cp = dp;
-	c = *cp;
-	*cp = 0;
 
 	/*\ only add new items \*/
 	for (p = read_dir(dir); p; ) {
@@ -142,7 +134,6 @@ hash_directory(char *dir)
 			(*pp)->next = 0;
 		}
 	}
-	*cp = c;
 }
 
 /*\

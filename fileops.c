@@ -281,33 +281,34 @@ read_dir(char *dir)
 	struct dirent *de;
 	hfile_t *rd = 0, **rdptr = &rd;
 	u16 *p;
-	int l;
+	int l, i;
+	char *dr, *dp, *ds;
 
-	if (dir[0]) {
-		dir = complete_path(dir);
-		l = strlen(dir);
-	} else {
-		dir = complete_path(".");
-		l = strlen(dir);
-		if (l <= 1) l = -1;
-	}
+	dir = complete_path(dir);
 
-	d = opendir(dir);
-	if (!d) return 0;
+	l = 0;
+	for (i = 0; dir[i]; i++)
+		if (dir[i] == DIR_SEP)
+			l = i + 1;
 
-	while ((de = readdir(d))) {
-		CNEW(*rdptr, 1);
-		NEW(p, l + strlen(de->d_name) + 2);
-		if (l > 0) {
-			unistr(dir, p);
-			p[l] = DIR_SEP;
+	NEW(dr, l + 1);
+	memcpy(dr, dir, l);
+	dr[l] = 0;
+
+	d = opendir(l ? dr : ".");
+	if (d) {
+		while ((de = readdir(d))) {
+			CNEW(*rdptr, 1);
+			NEW(p, l + strlen(de->d_name) + 1);
+			unistr(dr, p);
+			unistr(de->d_name, p + l);
+			(*rdptr)->filename = p;
+			rdptr = &((*rdptr)->next);
 		}
-		unistr(de->d_name, p + l + 1);
-		(*rdptr)->filename = p;
-		rdptr = &((*rdptr)->next);
+		closedir(d);
 	}
-	closedir(d);
 
+	free(dr);
 	return rd;
 }
 
