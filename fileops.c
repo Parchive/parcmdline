@@ -282,8 +282,13 @@ read_dir(char *dir)
 	hfile_t *rd = 0, **rdptr = &rd;
 	u16 *p;
 	int l;
-	l = strlen(dir);
 
+	if (dir[0]) {
+		dir = complete_path(dir);
+	} else {
+		dir = complete_path(".");
+	}
+	l = strlen(dir);
 	if (l == 0) {
 		l = -1;
 		dir = ".";

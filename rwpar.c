@@ -318,7 +318,7 @@ hash_all_files(char *dir)
 	*cp = 0;
 
 	/*\ only add new items \*/
-	for (p = read_dir(complete_path(dir)); p; ) {
+	for (p = read_dir(dir); p; ) {
 		for (pp = &hfile; *pp; pp = &((*pp)->next))
 			if (!unicode_cmp(p->filename, (*pp)->filename))
 				break;
