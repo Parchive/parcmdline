@@ -1,7 +1,7 @@
 
-CFLAGS=-g -W -Wall -Wno-unused -O3
+CFLAGS=-g -W -Wall -O3
 
-par: checkpar.o makepar.o rwpar.o rs.o md5.o fileops.o main.o readoldpar.o
+par: checkpar.o makepar.o rwpar.o rs.o md5.o fileops.o main.o readoldpar.o interface.o
 	$(CC) -o $@ $^
 
 clean:
@@ -20,3 +20,4 @@ fileops.o: fileops.c fileops.h types.h util.h par.h md5.h
 rwpar.o: rwpar.c rwpar.h par.h rs.h util.h md5.h
 rs.o: rs.c rs.h types.h fileops.h util.h
 readoldpar.o: readoldpar.c readoldpar.h fileops.h util.h par.h
+interface.o: interface.c interface.h par.h rwpar.h fileops.h util.h types.h

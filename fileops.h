@@ -37,8 +37,10 @@ struct file_s {
 void unistr(const char *str, u16 *buf);
 u16 *make_uni_str(const char *str);
 char *stuni(const u16 *str);
+u16 *unist(const char *str);
 char *stmd5(const md5 hash);
 i64 uni_copy(u16 *dst, u16 *src, i64 n);
+u16 * unicode_copy(u16 *str);
 int file_rename(u16 *src, u16 *dst);
 file_t file_open(const u16 *path, int wr);
 file_t file_open_ascii(const char *path, int wr);

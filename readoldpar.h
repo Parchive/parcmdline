@@ -13,6 +13,6 @@
 #define READOLDPAR_H
 
 int is_old_par(void *data);
-par_t * read_old_par(file_t f, char *file, int silent);
+par_t * read_old_par(file_t f, u16 *file, int silent);
 
 #endif /* READOLDPAR_H */

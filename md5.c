@@ -20,29 +20,17 @@
 
 /* Written by Ulrich Drepper <drepper@gnu.ai.mit.edu>, 1995.  */
 
-#ifdef HAVE_CONFIG_H
-# include <config.h>
-#endif
-
 #include <string.h>
 #include <sys/types.h>
 
-#if STDC_HEADERS || defined _LIBC
-# include <stdlib.h>
-# include <string.h>
-#else
-# ifndef HAVE_MEMCPY
-#  define memcpy(d, s, n) bcopy ((s), (d), (n))
-# endif
-#endif
+#include <stdlib.h>
+#include <string.h>
 
 #include "md5.h"
 
-#ifdef _LIBC
-# include <endian.h>
-# if __BYTE_ORDER == __BIG_ENDIAN
-#  define WORDS_BIGENDIAN 1
-# endif
+#include <endian.h>
+#if __BYTE_ORDER == __BIG_ENDIAN
+# define WORDS_BIGENDIAN 1
 #endif
 
 #ifdef WORDS_BIGENDIAN

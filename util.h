@@ -11,6 +11,6 @@
 #define NEW(ptr, size) ((ptr) = (malloc(sizeof(*(ptr)) * (size))))
 #define CNEW(ptr, size) ((ptr) = (calloc(sizeof(*(ptr)), (size))))
 #define RENEW(ptr, size) ((ptr) = (realloc((ptr), sizeof(*(ptr)) * (size))))
-#define COPY(tgt, src, nel) (memcpy((tgt), (src), (nel * sizeof(*(src)))))
+#define COPY(tgt, src, nel) (memcpy((tgt), (src), ((nel) * sizeof(*(src)))))
 
 #endif /* UTIL_H */

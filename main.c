@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include "fileops.h"
 #include "rwpar.h"
 #include "checkpar.h"
 #include "makepar.h"
@@ -212,7 +213,7 @@ main(int argc, char *argv[])
 		case ACTION_CHECK:
 		case ACTION_RESTORE:
 			fprintf(stderr, "Checking %s\n", argv[1]);
-			par = read_par_header(argv[1], 0, 0, 0);
+			par = read_par_header(unist(argv[1]), 0, 0, 0);
 			if (!par) {
 				fail = 2;
 				continue;
@@ -223,7 +224,7 @@ main(int argc, char *argv[])
 			break;
 		case ACTION_ADD:
 			fprintf(stderr, "Adding to %s\n", argv[1]);
-			par = read_par_header(argv[1], 1, 0, 0);
+			par = read_par_header(unist(argv[1]), 1, 0, 0);
 			if (!par) return 2;
 			cmd.action = ACTION_ADDING;
 			break;

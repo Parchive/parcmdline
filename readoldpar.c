@@ -131,7 +131,7 @@ read_old_pfiles(file_t f, i64 size)
 
 /*\ read in an old style PAR file.  File should point to beginning. \*/
 par_t *
-read_old_par(file_t f, char *file, int silent)
+read_old_par(file_t f, u16 *file, int silent)
 {
 	u8 buf[8];
 	int px;
@@ -195,7 +195,7 @@ read_old_par(file_t f, char *file, int silent)
 		file_close(f);
 	}
 
-	par.filename = make_uni_str(file);
+	par.filename = unicode_copy(file);
 	par.volumes = 0;
 
 	NEW(r, 1);

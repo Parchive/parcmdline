@@ -19,22 +19,6 @@
 #include "makepar.h"
 #include "fileops.h"
 
-static u16 uni_empty[] = { 0 };
-
-/*\
-|*| Order two unicode strings (caseless)
-|*| Return 1 if a > b
-\*/
-static int
-unicode_gt(u16 *a, u16 *b)
-{
-	for (; *a || *b; a++, b++) {
-		if (tolower(*a) > tolower(*b)) return 1;
-		if (tolower(*a) < tolower(*b)) return 0;
-	}
-	return 0;
-}
-
 /*\
 |*| Add a data file to a PAR file
 \*/

@@ -16,18 +16,21 @@
 #include "par.h"
 
 int unicode_cmp(u16 *a, u16 *b);
+int unicode_gt(u16 *a, u16 *b);
 int hash_file(hfile_t *file, char type);
 int find_file(pfile_t *file, int displ);
 hfile_t * find_file_path(char *path, int displ);
+hfile_t * find_file_name(u16 *path, int displ);
 hfile_t * find_volume(u16 *name, i64 vol);
 int move_away(u16 *file, const u8 *ext);
-void rename_away(u16 *src, u16 *dst);
-par_t * read_par_header(char *file, int create, i64 vol, int silent);
+int rename_away(u16 *src, u16 *dst);
+par_t * read_par_header(u16 *file, int create, i64 vol, int silent);
 void free_file_list(pfile_t *list);
 void free_par(par_t *par);
 file_t write_par_header(par_t *par);
 u16 * file_numbers(pfile_t **list, pfile_t **files);
 int find_volumes(par_t *par, int tofind);
+void find_par_files(pfile_t **volumes, pfile_t **files, int part);
 par_t * find_all_par_files(void);
 int restore_files(pfile_t *files, pfile_t *volumes);
 

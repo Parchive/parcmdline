@@ -70,6 +70,31 @@ stuni(const u16 *str)
 }
 
 /*\
+|*| Translate an ASCII string into unicode
+|*| Returns static string, which is overwritten at next call
+\*/
+u16 *
+unist(const char *str)
+{
+	i64 i;
+	static u16 *buf = 0;
+	static i64 bufsize = 0;
+
+	/*\ Count the length \*/
+	for (i = 0; str[i]; i++)
+		;
+	if ((i + 1) > bufsize) {
+		bufsize = i + 1;
+		RENEW(buf, bufsize);
+	}
+	/*\ For now, just copy the low byte \*/
+	for (i = 0; str[i]; i++)
+		buf[i] = str[i];
+	buf[i] = 0;
+	return buf;
+}
+
+/*\
 |*| Translate an md5 hash into ASCII
 |*| Returns static string, which is overwritten at next call
 \*/
@@ -95,6 +120,23 @@ uni_copy(u16 *dst, u16 *src, i64 n)
 		dst[i] = src[i];
 	dst[i] = 0;
 	return i;
+}
+
+u16 *
+unicode_copy(u16 *str)
+{
+	u16 *ret, *p;
+
+	if (!str) {
+		NEW(ret, 1);
+		ret[0] = 0;
+		return ret;
+	}
+	for (p = str; *p; p++)
+		;
+	NEW(ret, (p - str) + 1);
+	COPY(ret, str, (p - str) + 1);
+	return ret;
 }
 
 int
