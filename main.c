@@ -82,9 +82,6 @@ main(int argc, char *argv[])
 			case '+':
 				cmd.plus = 0;
 				break;
-			case 'r':
-				cmd.rvol = cmd.plus;
-				break;
 			case 'm':
 				cmd.move = cmd.plus;
 				break;
@@ -165,7 +162,7 @@ main(int argc, char *argv[])
 		case ACTION_CHECK:
 		case ACTION_RESTORE:
 			fprintf(stderr, "Checking %s\n", argv[1]);
-			par = read_par_header(argv[1], 0);
+			par = read_par_header(argv[1], 0, 0, 0);
 			if (!par) {
 				fail = 2;
 				continue;
@@ -176,7 +173,7 @@ main(int argc, char *argv[])
 			break;
 		case ACTION_ADD:
 			fprintf(stderr, "Adding to %s\n", argv[1]);
-			par = read_par_header(argv[1], 1);
+			par = read_par_header(argv[1], 1, 0, 0);
 			if (!par) return 2;
 			cmd.action = ACTION_ADDING;
 			break;

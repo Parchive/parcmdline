@@ -9,53 +9,37 @@
 #ifndef PAR_H
 #define PAR_H
 
-#define PAR_FIX_HEAD_SIZE	0x36
-#define PXX_FIX_HEAD_SIZE	0x40
-#define FILE_ENTRY_FIX_SIZE	0x3A
+#define PAR_FIX_HEAD_SIZE	0x60
+#define FILE_ENTRY_FIX_SIZE	0x38
 
 struct par_s {
-	u32 magic;
-	u16 version;
-	md5 set_hash;
-	i64 file_list;
-	i64 volume_list;
+	i64 magic;
+	u32 version;
+	u32 client;
 	md5 control_hash;
+	md5 set_hash;
+	i64 vol_number;
+	i64 num_files;
+	i64 file_list;
+	i64 file_list_size;
+	i64 data;
+	i64 data_size;
 
-	u16 *comment;
 	pfile_t *files;
 	pfile_t *volumes;
-	u8 *data;
 	u16 *filename;
-	file_t f;
-} __attribute__ ((packed));
-
-struct pxx_s {
-	u32 magic;
-	u16 version;
-	md5 set_hash;
-	u16 vol_number;
-	i64 file_list;
-	i64 parity_data;
-	i64 parity_data_size;
-	md5 control_hash;
-
 	u16 *comment;
-	pfile_t *files;
-	pfile_t *volumes;
-	u8 *data;
-	u16 *filename;
 	file_t f;
-} __attribute__ ((packed));
+};
 
 struct pfile_entr_s {
 	i64 size;
 	i64 status;
 	i64 file_size;
-	md5 hash_16k;
 	md5 hash;
-	u16 vol_number;
+	md5 hash_16k;
 	u16 filename[1];
-} __attribute__ ((packed));
+};
 
 struct pfile_s {
 	pfile_t *next;
@@ -63,10 +47,8 @@ struct pfile_s {
 	i64 file_size;
 	md5 hash_16k;
 	md5 hash;
-	u16 vol_number;
+	i64 vol_number;
 	u16 *filename;
-	u16 *comment;
-	int new;
 	file_t f;
 	hfile_t *match;
 	int crt;
@@ -79,7 +61,6 @@ extern struct cmdline {
 
 	int pervol : 1;	/*\ volumes is actually files per volume \*/
 	int plus :1;	/*\ Turn on or off options (with + or -) \*/
-	int rvol :1;	/*\ Restore missing recovery volumes as well \*/
 	int move :1;	/*\ Move away files that are in the way \*/
 	int fix :1;	/*\ Fix files with bad filenames \*/
 	int nocase :1;	/*\ Compare filenames without case \*/
@@ -95,11 +76,8 @@ extern struct cmdline {
 #define ACTION_ADD	11	/*\ Create a PAR archive ... \*/
 #define ACTION_ADDING	12	/*\ ... and add files to it. \*/
 
-#define PAR_MAGIC (*((u32 *)"PAR"))
-#define PXX_MAGIC (*((u32 *)"PXX"))
-
+#define PAR_MAGIC (*((i64 *)"PAR\0\0\0\0\0"))
 #define IS_PAR(x) (((x).magic) == PAR_MAGIC)
-#define IS_PXX(x) (((x).magic) == PXX_MAGIC)
 
 #define CMP_MD5(a,b) (!memcmp((a), (b), sizeof(md5)))
 

@@ -147,6 +147,12 @@ file_exists(u16 *file)
 	return 1;
 }
 
+int
+file_seek(file_t f, i64 off)
+{
+	return fseek(f, off, SEEK_SET);
+}
+
 /*\ Calculate md5 sums on a file \*/
 ssize_t
 file_md5(u16 *file, md5 block)
@@ -180,37 +186,28 @@ file_md5_16k(u16 *file, md5 block)
 |*| put it at offset 'md5off'
 \*/
 int
-file_add_md5(file_t f, long md5off, long off)
+file_add_md5(file_t f, i64 md5off, i64 off)
 {
 	md5 hash;
 	ssize_t i;
 
-	if (fseek(f, off, SEEK_SET) < 0)
+	if (file_seek(f, off) < 0)
 		return 0;
 	i = md5_stream(f, hash);
 	if (i < 0) return 0;
-	if (fseek(f, md5off, SEEK_SET) < 0)
+	if (file_seek(f, md5off) < 0)
 		return 0;
 	file_write(f, hash, sizeof(hash));
-	if (fseek(f, 0, SEEK_END) < 0)
-		return 0;
 	return 1;
 }
 
-/*\ Get the md5sum over part of a file.
-|*| Rewind the file to the last position.
-\*/
+/*\ Get the md5sum over part of a file.  \*/
 int
-file_get_md5(file_t f, md5 block)
+file_get_md5(file_t f, i64 off, md5 block)
 {
-	long p;
-	ssize_t i;
-
-	p = ftell(f);
-	i = md5_stream(f, block);
-	if (fseek(f, p, SEEK_SET) < 0)
+	if (file_seek(f, off) < 0)
 		return 0;
-	return (i != 0);
+	return (md5_stream(f, block) != 0);
 }
 
 

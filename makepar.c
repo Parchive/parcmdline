@@ -6,7 +6,7 @@
 |*|  File format by Stefan Wehlus -
 |*|   initial idea by Tobias Rieper, further suggestions by Kilroy Balore 
 |*|
-|*|  Create PAR and PXX files.
+|*|  Create PAR files.
 \*/
 
 #include <stdlib.h>
@@ -22,65 +22,6 @@
 static u16 uni_empty[] = { 0 };
 
 /*\
-|*| Add a data file to a PXX volume
-\*/
-static int
-pxx_add_file(pxx_t *pxx, hfile_t *file, int displ)
-{
-	pfile_t **p;
-
-	if (!file)
-		return 0;
-	if (!hash_file(file, HASH)) {
-		if (displ)
-			fprintf(stderr, "    %-36s - ERROR\n",
-				stuni(file->filename));
-		return 0;
-	}
-	for (p = &pxx->files; *p; p = &((*p)->next)) {
-		switch (unicode_cmp((*p)->filename, file->filename)) {
-		case 0:
-			if (CMP_MD5((*p)->hash, file->hash)) {
-				if (displ)
-					fprintf(stderr, "    %-36s - EXISTS\n",
-							stuni(file->filename));
-			} else {
-				if (displ)
-					fprintf(stderr, "    %-36s - CLASH\n",
-						stuni(file->filename));
-			}
-			return 0;
-		case 1:
-			if (CMP_MD5((*p)->hash, file->hash)) {
-				if (displ)
-					fprintf(stderr, "    %-36s - EXISTS\n",
-						stuni(file->filename));
-				return 0;
-			}
-			break;
-		}
-	}
-	if (!cmd.add) {
-		if (displ)
-			fprintf(stderr, "    %-36s - NOT ADDED\n",
-					stuni(file->filename));
-		return 0;
-	}
-	CNEW((*p), 1);
-	(*p)->filename = file->filename;
-	(*p)->match = file;
-	(*p)->comment = uni_empty;
-	(*p)->file_size = file->file_size;
-	COPY((*p)->hash_16k, file->hash_16k, sizeof(md5));
-	COPY((*p)->hash, file->hash, sizeof(md5));
-
-	if (displ)
-		fprintf(stderr, "    %-36s - OK\n", stuni(file->filename));
-
-	return 1;
-}
-
-/*\
 |*| Add a data file to a PAR file
 \*/
 int
@@ -88,8 +29,6 @@ par_add_file(par_t *par, hfile_t *file)
 {
 	pfile_t **p, *v;
 
-	if (IS_PXX(*par))
-		return pxx_add_file((pxx_t *)par, file, 1);
 	if (!file)
 		return 0;
 	if (!hash_file(file, HASH)) {
@@ -120,65 +59,25 @@ par_add_file(par_t *par, hfile_t *file)
 	CNEW((*p), 1);
 	(*p)->filename = file->filename;
 	(*p)->match = file;
-	(*p)->comment = uni_empty;
 	(*p)->file_size = file->file_size;
-	COPY((*p)->hash_16k, file->hash_16k, sizeof(md5));
 	COPY((*p)->hash, file->hash, sizeof(md5));
+	COPY((*p)->hash_16k, file->hash_16k, sizeof(md5));
 	if (cmd.add)
 		(*p)->status |= 0x01;
 
 	fprintf(stderr, "  %-40s - OK\n", stuni(file->filename));
 
-	for (v = par->volumes; v; v = v->next)
-		v->crt = 1;
-
 	return 1;
 }
 
 /*\
-|*| Find a PXX volume entry with a given volume number.
-|*|  Create it if it doesn't exist.
-\*/
-static pfile_t *
-par_find_volume(par_t *par, u16 vol)
-{
-	pfile_t **v;
-
-	if (!vol)
-		return 0;
-	if (vol > 99) {
-		fprintf(stderr, "    Volume number out of range: %d\n", vol);
-		return 0;
-	}
-	for (v = &par->volumes; *v; v = &((*v)->next)) {
-		if (((*v)->vol_number) == vol) {
-			break;
-		}
-	}
-
-	if (!(*v)) {
-		CNEW((*v), 1);
-		(*v)->comment = uni_empty;
-		(*v)->vol_number = vol;
-		(*v)->crt = 1;
-	}
-	if (!(*v)->match) {
-		(*v)->match = find_volume(par->filename, vol);
-		if ((*v)->match)
-			(*v)->filename = (*v)->match->filename;
-	}
-	return *v;
-}
-
-/*\
-|*| Create the PXX volumes from the description in the PAR archive
+|*| Create the PAR volumes from the description in the PAR archive
 \*/
 int
 par_make_pxx(par_t *par)
 {
 	pfile_t *p, *v;
-	u16 nf;
-	int M;
+	int nf, M;
 
 	if (!IS_PAR(*par))
 		return 0;
@@ -194,10 +93,18 @@ par_make_pxx(par_t *par)
 	}
 
 	/*\ Create volume file entries \*/
-	for (nf = 1; nf <= M; nf++)
-		par_find_volume(par, nf);
+	for (nf = 1; nf <= M; nf++) {
+		CNEW(v, 1);
+		v->match = find_volume(par->filename, nf);
+		v->vol_number = nf;
+		v->crt = 1;
+		if (v->match)
+			v->filename = v->match->filename;
+		v->next = par->volumes;
+		par->volumes = v;
+	}
 
-	fprintf(stderr, "\n\nCreating PXX volumes:\n");
+	fprintf(stderr, "\n\nCreating PAR volumes:\n");
 	for (p = par->files; p; p = p->next)
 		if (p->status & 0x1)
 			find_file(p, 1);
