@@ -307,15 +307,15 @@ hfile_add(u16 *filename)
 static void
 hash_all_files(char *dir)
 {
-	char *cp, *dp;
+	char c, *cp, *dp;
 	hfile_t *p, *q, **pp;
 
 	/*\ Strip off from last dir separator \*/
-	for (cp = 0, dp = dir; *dp; dp++)
+	for (cp = dir, dp = dir; *dp; dp++)
 		if (*dp == DIR_SEP)
 			cp = dp;
-	if (cp) *cp = 0;
-	else dir = ".";
+	c = *cp;
+	*cp = 0;
 
 	/*\ only add new items \*/
 	for (p = read_dir(complete_path(dir)); p; ) {
@@ -332,7 +332,7 @@ hash_all_files(char *dir)
 			(*pp)->next = 0;
 		}
 	}
-	if (cp) *cp = DIR_SEP;
+	*cp = c;
 }
 
 /*\

@@ -284,14 +284,21 @@ read_dir(char *dir)
 	int l;
 	l = strlen(dir);
 
+	if (l == 0) {
+		l = -1;
+		dir = ".";
+	}
+
 	d = opendir(dir);
 	if (!d) return 0;
 
 	while ((de = readdir(d))) {
 		CNEW(*rdptr, 1);
 		NEW(p, l + strlen(de->d_name) + 2);
-		unistr(dir, p);
-		p[l] = DIR_SEP;
+		if (l > 0) {
+			unistr(dir, p);
+			p[l] = DIR_SEP;
+		}
 		unistr(de->d_name, p + l + 1);
 		(*rdptr)->filename = p;
 		rdptr = &((*rdptr)->next);
