@@ -967,17 +967,14 @@ file_numbers(pfile_t **list, pfile_t **files)
 			i++;
 	NEW(fnrs, i + 1);
 	for (i = 0; *files; ) {
-		if (!USE_FILE(*files)) {
-			files = &((*files)->next);
-			continue;
-		}
 		/*\ Look for a match \*/
 		for (j = 1, qq = list; *qq; qq = &((*qq)->next), j++) {
-			if (!USE_FILE(*qq)) continue;
 			if ((*files)->file_size != (*qq)->file_size) continue;
 			if (!CMP_MD5((*files)->hash, (*qq)->hash)) continue;
 			break;
 		}
+		if (USE_FILE(*files))
+			fnrs[i++] = j;
 		/*\ No match ? Move the file entry to the tail of the list \*/
 		if (!*qq) {
 			*qq = *files;
@@ -986,7 +983,6 @@ file_numbers(pfile_t **list, pfile_t **files)
 		} else {
 			files = &((*files)->next);
 		}
-		fnrs[i++] = j;
 	}
 	fnrs[i] = 0;
 	return fnrs;
