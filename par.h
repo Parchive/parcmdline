@@ -77,14 +77,16 @@ extern struct cmdline {
 	int loglevel;
 	int volumes;	/*\ Number of volumes to create \*/
 
+	int pervol : 1;	/*\ volumes is actually files per volume \*/
 	int plus :1;	/*\ Turn on or off options (with + or -) \*/
 	int rvol :1;	/*\ Restore missing recovery volumes as well \*/
 	int move :1;	/*\ Move away files that are in the way \*/
 	int fix :1;	/*\ Fix files with bad filenames \*/
 	int nocase :1;	/*\ Compare filenames without case \*/
 	int dupl :1;	/*\ Check for duplicate files \*/
-	int noadd :1;	/*\ Don't add files to PXX volumes \*/
+	int add :1;	/*\ Don't add files to PXX volumes \*/
 	int pxx :1;	/*\ Create PXX volumes \*/
+	int ctrl :1;	/*\ Check/create control hash \*/
 	int dash :1;	/*\ End of cmdline switches \*/
 } cmd;
 

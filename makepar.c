@@ -60,7 +60,7 @@ pxx_add_file(pxx_t *pxx, hfile_t *file, int displ)
 			break;
 		}
 	}
-	if (cmd.noadd) {
+	if (!cmd.add) {
 		if (displ)
 			fprintf(stderr, "    %-36s - NOT ADDED\n",
 					stuni(file->filename));
@@ -124,7 +124,7 @@ par_add_file(par_t *par, hfile_t *file)
 	(*p)->file_size = file->file_size;
 	COPY((*p)->hash_16k, file->hash_16k, sizeof(md5));
 	COPY((*p)->hash, file->hash, sizeof(md5));
-	if (!cmd.noadd)
+	if (cmd.add)
 		(*p)->status |= 0x01;
 
 	fprintf(stderr, "  %-40s - OK\n", stuni(file->filename));
@@ -178,14 +178,22 @@ par_make_pxx(par_t *par)
 {
 	pfile_t *p, *v;
 	u16 nf;
+	int M;
 
 	if (!IS_PAR(*par))
 		return 0;
 	if (cmd.volumes <= 0)
 		return 0;
 
+	M = cmd.volumes;
+	if (cmd.pervol) {
+		for (M = 0, p = par->files; p; p = p->next)
+			M++;
+		M = ((M - 1) / cmd.volumes) + 1;
+	}
+
 	/*\ Create volume file entries \*/
-	for (nf = 1; nf <= cmd.volumes; nf++)
+	for (nf = 1; nf <= M; nf++)
 		par_find_volume(par, nf);
 
 	fprintf(stderr, "\n\nCreating PXX volumes:\n");

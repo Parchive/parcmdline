@@ -80,7 +80,7 @@ dump_pxx(pxx_t *pxx)
 	pfile_t *p;
 
 	fprintf(stderr,  "PXX file dump:\n"
-		"  version: %d\n"
+		"  version: 0x%04x\n"
 		"  set hash: %s\n",
 		pxx->version,
 		stmd5(pxx->set_hash));
@@ -113,7 +113,7 @@ dump_par(par_t *par)
 	}
 
 	fprintf(stderr,  "PAR file dump:\n"
-		"  version: %d\n"
+		"  version: 0x%04x\n"
 		"  set hash: %s\n",
 		par->version,
 		stmd5(par->set_hash));
@@ -584,6 +584,7 @@ read_pxx_header(char *file, par_t *par, u16 vol, int silent)
 {
 	pxx_t pxx, *r;
 	i64 i;
+	md5 hash;
 
 	if (par) {
 		/*\ Copy stuff from the supplied PAR header \*/
@@ -633,6 +634,15 @@ read_pxx_header(char *file, par_t *par, u16 vol, int silent)
 		return 0;
 	}
 
+	/*\ Check md5 control hash \*/
+	if (cmd.ctrl && (!file_get_md5(pxx.f, hash) ||
+			!CMP_MD5(pxx.control_hash, hash)))
+	{
+		fprintf(stderr, "PXX file corrupt: control hash mismatch!\n");
+		file_close(pxx.f);
+		return 0;
+	}
+
 	/*\ Check if we have the right volume \*/
 	if (vol && (vol != pxx.vol_number)) {
 		if (!silent)
@@ -674,6 +684,7 @@ read_par_header(char *file, int create)
 {
 	par_t par, *r;
 	i64 i, n;
+	md5 hash;
 
 	if (!(par.f = file_open_ascii(file, 0))) {
 		if (!create) {
@@ -702,6 +713,15 @@ read_par_header(char *file, int create)
 	/*\ Check version number \*/
 	if (par.version >= 0x100) {
 		fprintf(stderr, "PAR Version mismatch!\n");
+		file_close(par.f);
+		return 0;
+	}
+
+	/*\ Check md5 control hash \*/
+	if (cmd.ctrl && (!file_get_md5(par.f, hash) ||
+			!CMP_MD5(par.control_hash, hash)))
+	{
+		fprintf(stderr, "PAR file corrupt: control hash mismatch!\n");
 		file_close(par.f);
 		return 0;
 	}
@@ -915,6 +935,9 @@ write_par_header(par_t *par)
 	write_file_entries(f, par->files);
 	write_file_entries(f, par->volumes);
 
+	if (cmd.ctrl)
+		file_add_md5(f, 0x0026, 0x0036);
+
 	if (file_close(f) < 0) {
 		fprintf(stderr, "      WRITE ERROR: %s: ",
 				stuni(par->filename));
@@ -1055,8 +1078,11 @@ restore_files(pfile_t *files, pfile_t *volumes)
 
 	for (i = 0; i < N; i++)
 		file_close(in[i].f);
-	for (i = 0; i < j; i++)
+	for (i = 0; i < j; i++) {
+		if (out[i].volnr && cmd.ctrl)
+			file_add_md5(out[i].f, 0x0030, 0x0040);
 		file_close(out[i].f);
+	}
 
 	free(in);
 	free(out);

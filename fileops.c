@@ -120,9 +120,9 @@ file_open_ascii(const char *path, int wr)
 {
 	int i;
 	/*\ This is so complicated to make sure we don't overwrite \*/
-	i = open(path, wr ? O_WRONLY|O_CREAT|O_EXCL : O_RDONLY, 0666);
+	i = open(path, wr ? O_RDWR|O_CREAT|O_EXCL : O_RDONLY, 0666);
 	if (i < 0) return 0;
-	return fdopen(i, wr ? "wb" : "rb");
+	return fdopen(i, wr ? "w+b" : "rb");
 }
 
 file_t
@@ -175,6 +175,44 @@ file_md5_16k(u16 *file, md5 block)
 	if (s < 0) return 0;
 	return (md5_buffer(buf, s, block) != 0);
 }
+
+/*\ Calculate the md5sum of a file from offset 'off',
+|*| put it at offset 'md5off'
+\*/
+int
+file_add_md5(file_t f, long md5off, long off)
+{
+	md5 hash;
+	ssize_t i;
+
+	if (fseek(f, off, SEEK_SET) < 0)
+		return 0;
+	i = md5_stream(f, hash);
+	if (i < 0) return 0;
+	if (fseek(f, md5off, SEEK_SET) < 0)
+		return 0;
+	file_write(f, hash, sizeof(hash));
+	if (fseek(f, 0, SEEK_END) < 0)
+		return 0;
+	return 1;
+}
+
+/*\ Get the md5sum over part of a file.
+|*| Rewind the file to the last position.
+\*/
+int
+file_get_md5(file_t f, md5 block)
+{
+	long p;
+	ssize_t i;
+
+	p = ftell(f);
+	i = md5_stream(f, block);
+	if (fseek(f, p, SEEK_SET) < 0)
+		return 0;
+	return (i != 0);
+}
+
 
 /*\ Read a directory.
 |*|  Returns a linked list of file entries.

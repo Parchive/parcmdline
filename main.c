@@ -35,10 +35,12 @@ usage(void)
 "    -m   : Move existing files out of the way\n"
 "    -r   : Recover missing parity volumes as well\n"
 "    -f   : Fix faulty filenames\n"
-"    -n<n>: Set number of parity volumes to create\n"
-"    -i   : Don't add following files to parity volumes\n"
-"    +c   : Do not create parity volumes\n"
+"    -p<n>: Number of files per parity volume\n"
+" or -n<n>: Number of parity volumes to create\n"
 "    -d   : Search for duplicate files\n"
+"    +i   : Do not add following files to parity volumes\n"
+"    +c   : Do not create parity volumes\n"
+"    +H   : Do not check control hashes\n"
 "    -v,+v: Increase or decrease verbosity\n"
 "    -h,-?: Display this help\n"
 "    --   : Always treat following arguments as files\n"
@@ -59,8 +61,10 @@ main(int argc, char *argv[])
 
 	/*\ Some defaults \*/
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.volumes = 5;
+	cmd.volumes = 10;
+	cmd.pervol = 1;
 	cmd.pxx = 1;
+	cmd.ctrl = 1;
 
 	if (argc == 1) return usage();
 
@@ -84,7 +88,7 @@ main(int argc, char *argv[])
 				cmd.move = cmd.plus;
 				break;
 			case 'i':
-				cmd.noadd = cmd.plus;
+				cmd.add = cmd.plus;
 				break;
 			case 'f':
 				cmd.fix = cmd.plus;
@@ -101,7 +105,9 @@ main(int argc, char *argv[])
 				else
 					cmd.loglevel--;
 				break;
+			case 'p':
 			case 'n':
+				cmd.pervol = (*p == 'p');
 				while (isspace(*++p))
 					;
 				if (!*p) {
@@ -119,6 +125,9 @@ main(int argc, char *argv[])
 					} while (isdigit(*++p));
 					p--;
 				}
+				break;
+			case 'H':
+				cmd.ctrl = cmd.plus;
 				break;
 			case '?':
 			case 'h':

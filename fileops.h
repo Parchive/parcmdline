@@ -39,6 +39,8 @@ int file_close(file_t f);
 int file_exists(u16 *file);
 ssize_t file_md5(u16 *file, md5 block);
 int file_md5_16k(u16 *file, md5 block);
+int file_add_md5(file_t f, long md5off, long off);
+int file_get_md5(file_t f, md5 block);
 hfile_t *read_dir(char *dir);
 i64 file_read(file_t f, void *buf, i64 n);
 i64 file_write(file_t f, void *buf, i64 n);
