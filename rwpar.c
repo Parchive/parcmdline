@@ -466,17 +466,14 @@ find_file_path(char *path, int displ)
 hfile_t *
 find_file_name(u16 *path, int displ)
 {
-	u16 filename[FILENAME_MAX];
 	u16 *file;
 	hfile_t *p, *ret = 0;
 
 	for (file = path; *file; file++)
 		;
 	while (*--file != '/')
-		;
-	if ((file - path) >= FILENAME_MAX)
-		return 0;
-	uni_copy(file, filename, FILENAME_MAX);
+		if (file <= path)
+			break;
 
 	if (!hfile_done) {
 		hash_all_files(".");
@@ -485,7 +482,7 @@ find_file_name(u16 *path, int displ)
 
 	/*\ Check filename (caseless) and then check md5 hash \*/
 	for (p = hfile; p; p = p->next) {
-		switch (unicode_cmp(p->filename, filename)) {
+		switch (unicode_cmp(p->filename, file)) {
 		case 1:
 			if (ret) break;
 		case 0:
@@ -493,7 +490,7 @@ find_file_name(u16 *path, int displ)
 		}
 	}
 	if (!ret && displ)
-		fprintf(stderr, "  %-40s - NOT FOUND\n", stuni(filename));
+		fprintf(stderr, "  %-40s - NOT FOUND\n", stuni(file));
 	return ret;
 }
 
@@ -1053,8 +1050,6 @@ find_par_files(pfile_t **volumes, pfile_t **files, int part)
 	hfile_t *p;
 	par_t *tmp;
 
-	fprintf(stderr, "\nLooking for PXX volumes:\n");
-
 	if (!hfile_done) {
 		hash_all_files(".");
 		hfile_done = 1;
@@ -1074,11 +1069,12 @@ find_par_files(pfile_t **volumes, pfile_t **files, int part)
 			v->file_size = tmp->data_size;
 			v->fnrs = file_numbers(files, &tmp->files);
 			v->f = tmp->f;
+			v->filename = unicode_copy(tmp->filename);
 			tmp->f = 0;
 
 			/*\ Insert in alphabetically correct place \*/
 			for (vv = volumes; *vv; vv = &((*vv)->next))
-				if (unicode_gt((*vv)->filename, p->filename))
+				if (unicode_gt((*vv)->filename, v->filename))
 						break;
 			v->next = *vv;
 			*vv = v;
@@ -1146,32 +1142,45 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	pfile_t *mis_f, *mis_v;
 
 	/*\ Separate out missing files \*/
+	p = files;
 	size = 0;
-	mis_f = 0;
-	for (i = 1, pp = &files, qq = &mis_f; *pp; i++) {
-		(*pp)->vol_number = i;
-		if ((*pp)->file_size > size)
-			size = (*pp)->file_size;
-		if (!find_file(*pp, 0) && USE_FILE(*pp)) {
-			*qq = *pp;
-			*pp = (*pp)->next;
-			(*qq)->next = 0;
+	pp = &files;
+	qq = &mis_f;
+	*pp = *qq = 0;
+	for (i = 1; p; p = p->next, i++) {
+		p->vol_number = i;
+		if (p->file_size > size)
+			size = p->file_size;
+		if (!find_file(p, 0) && USE_FILE(p)) {
+			NEW(*qq, 1);
+			COPY(*qq, p, 1);
 			qq = &((*qq)->next);
+			*qq = 0;
 		} else {
+			NEW(*pp, 1);
+			COPY(*pp, p, 1);
+			(*pp)->next = 0;
 			pp = &((*pp)->next);
+			*pp = 0;
 		}
 	}
 
 	/*\ Separate out missing volumes \*/
-	mis_v = 0;
-	for (pp = &volumes, qq = &mis_v; *pp; ) {
-		if (!(*pp)->f) {
-			*qq = *pp;
-			*pp = (*pp)->next;
-			(*qq)->next = 0;
+	p = volumes;
+	pp = &volumes;
+	qq = &mis_v;
+	*pp = *qq = 0;
+	for (; p; p = p->next) {
+		if (p->vol_number && !(p->f)) {
+			NEW(*qq, 1);
+			COPY(*qq, p, 1);
 			qq = &((*qq)->next);
+			*qq = 0;
 		} else {
+			NEW(*pp, 1);
+			COPY(*pp, p, 1);
 			pp = &((*pp)->next);
+			*pp = 0;
 		}
 	}
 
@@ -1246,7 +1255,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	for (v = mis_v; v; v = v->next) {
 		par_t *par;
 
-		par = create_par_header(v->match->filename, v->vol_number);
+		par = create_par_header(v->filename, v->vol_number);
 		if (!par) {
 			fprintf(stderr, "  %-40s - FAILED\n",
 					stuni(v->match->filename));
@@ -1330,6 +1339,23 @@ restore_files(pfile_t *files, pfile_t *volumes)
 			continue;
 		}
 		fprintf(stderr, "  %-40s - OK\n", stuni(v->filename));
+	}
+
+	while ((p = files)) {
+		files = p->next;
+		free(p);
+	}
+	while ((p = volumes)) {
+		volumes = p->next;
+		free(p);
+	}
+	while ((p = mis_f)) {
+		mis_f = p->next;
+		free(p);
+	}
+	while ((p = mis_v)) {
+		mis_v = p->next;
+		free(p);
 	}
 
 	if (fail) {

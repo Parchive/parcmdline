@@ -24,6 +24,7 @@ hfile_t * find_file_name(u16 *path, int displ);
 hfile_t * find_volume(u16 *name, i64 vol);
 int move_away(u16 *file, const u8 *ext);
 int rename_away(u16 *src, u16 *dst);
+par_t * create_par_header(u16 *file, i64 vol);
 par_t * read_par_header(u16 *file, int create, i64 vol, int silent);
 void free_file_list(pfile_t *list);
 void free_par(par_t *par);

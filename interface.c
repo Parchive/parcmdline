@@ -28,16 +28,19 @@ par_load(u16 *filename)
 	pfile_t *p, **pp;
 	par_t *par;
 
+	if (!filename) return PAR_ERR_INVALID;
+
 	for (p = volumes; p; p = p->next)
 		if (!unicode_cmp(p->filename, filename))
 			return PAR_ERR_ALREADY_LOADED;
 	par = read_par_header(filename, 1, 0, 0);
 	if (!par) return PAR_ERR_ERRNO;
 	CNEW(p, 1);
-	p->match = find_file_path(stuni(par->filename), 1);
+	p->match = find_file_name(par->filename, 0);
 	p->vol_number = par->vol_number;
 	p->file_size = par->data_size;
-	p->fnrs = file_numbers(&files, &par->files);
+	if (par->files)
+		p->fnrs = file_numbers(&files, &par->files);
 	p->f = par->f;
 	p->filename = unicode_copy(filename);
 	par->f = 0;
@@ -71,7 +74,7 @@ par_unload(u16 *entry)
 	pfile_t *p, **pp;
 
 	for (pp = &volumes; *pp; pp = &((*pp)->next)) {
-		if (!unicode_cmp((*pp)->filename, entry)) {
+		if ((*pp)->filename == entry) {
 			p = *pp;
 			*pp = p->next;
 			if (p->f) file_close(p->f);
@@ -240,6 +243,8 @@ par_addfile(u16 *filename)
 	pfile_t *p, **pp;
 	hfile_t *file;
 
+	if (!filename) return PAR_ERR_INVALID;
+
 	file = find_file_name(filename, 0);
 	if (!file)
 		return PAR_ERR_NOT_FOUND;
@@ -273,6 +278,15 @@ par_addfile(u16 *filename)
 	return PAR_OK;
 }
 
+/*\ Remove a file from the current filelist
+|*|   entry: file to remove
+\*/
+int
+par_removefile(u16 *entry)
+{
+	return PAR_ERR_IMPL;
+}
+
 /*\ Add new PARfiles to the current parlist
 |*|   number: the highest volume number to create
 \*/
@@ -281,35 +295,27 @@ par_addpars(u16 *entry, int number)
 {
 	int i, err = PAR_OK;
 	pfile_t *p, **pp;
-	par_t *par;
+	hfile_t *h;
 
 	if (number < 1) return PAR_ERR_INVALID;
 	for (p = volumes; p; p = p->next)
 		if (p->filename == entry)
 			break;
 	if (!p) return PAR_ERR_INVALID;
-	for (i = 1; i < number; i++) {
-		par = read_par_header(entry, 1, i, 0);
-		if (!par) {
+	for (i = 1; i <= number; i++) {
+		h = find_volume(entry, i);
+		if (!h) {
 			err = PAR_ERR_ERRNO;
 			continue;
 		}
 		for (p = volumes; p; p = p->next)
-			if (!unicode_cmp(p->filename, par->filename))
+			if (!unicode_cmp(p->filename, h->filename))
 				break;
-		if (p) {
-			free_par(par);
-			continue;
-		}
+		if (p) continue;
 		CNEW(p, 1);
-		p->match = find_file_path(stuni(par->filename), 1);
-		p->vol_number = par->vol_number;
-		p->file_size = par->data_size;
-		p->fnrs = file_numbers(&files, &files);
-		p->f = par->f;
-		p->filename = unicode_copy(par->filename);
-		par->f = 0;
-		free_par(par);
+		p->match = h;
+		p->vol_number = i;
+		p->filename = unicode_copy(h->filename);
 
 		/*\ Insert in alphabetically correct place \*/
 		for (pp = &volumes; *pp; pp = &((*pp)->next))
@@ -336,6 +342,16 @@ par_create(u16 *entry)
 			file_close(p->f);
 			p->f = 0;
 		}
+		if (!p->vol_number) {
+			par_t *par;
+			par = create_par_header(p->filename, 0);
+			par->files = files;
+			write_par_header(par);
+			par->files = 0;
+			free_par(par);
+		}
+		if (!p->fnrs)
+			p->fnrs = file_numbers(&files, &files);
 	}
 	if (restore_files(files, volumes) < 0)
 		return PAR_ERR_FAILED;

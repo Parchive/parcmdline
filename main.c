@@ -17,6 +17,7 @@
 #include "rwpar.h"
 #include "checkpar.h"
 #include "makepar.h"
+#include "interface.h"
 
 struct cmdline cmd;
 
@@ -78,6 +79,9 @@ check_sizes(void)
 	}
 	return fail;
 }
+
+/*\ In ui_text.h \*/
+void ui_text(void);
 
 /*\
 |*| Main loop.  Simple stuff.
@@ -198,6 +202,9 @@ main(int argc, char *argv[])
 			case 'A':
 				cmd.action = ACTION_ADD;
 				break;
+			case 'i':
+			case 'I':
+				cmd.action = ACTION_TEXT_UI;
 				break;
 			default:
 				fprintf(stderr, "Unknown command: '%s'\n",
@@ -234,7 +241,14 @@ main(int argc, char *argv[])
 		case ACTION_MIX:
 			fprintf(stderr, "Unknown argument: '%s'\n", argv[1]);
 			break;
+		case ACTION_TEXT_UI:
+			par_load(unist(argv[1]));
+			break;
 		}
+	}
+	if (cmd.action == ACTION_TEXT_UI) {
+		ui_text();
+		return 0;
 	}
 	if (cmd.action == ACTION_MIX) {
 		par = find_all_par_files();

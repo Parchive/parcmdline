@@ -80,6 +80,7 @@ extern struct cmdline {
 #define ACTION_MIX	03	/*\ Try to use a mix of all PAR files \*/
 #define ACTION_ADD	11	/*\ Create a PAR archive ... \*/
 #define ACTION_ADDING	12	/*\ ... and add files to it. \*/
+#define ACTION_TEXT_UI	20	/*\ Interactive text interface \*/
 
 #define PAR_MAGIC (*((i64 *)"PAR\0\0\0\0\0"))
 #define IS_PAR(x) (((x).magic) == PAR_MAGIC)
