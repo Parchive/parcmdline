@@ -188,7 +188,8 @@ par_make_pxx(par_t *par)
 	M = cmd.volumes;
 	if (cmd.pervol) {
 		for (M = 0, p = par->files; p; p = p->next)
-			M++;
+			if (p->status & 0x1)
+				M++;
 		M = ((M - 1) / cmd.volumes) + 1;
 	}
 
@@ -198,7 +199,8 @@ par_make_pxx(par_t *par)
 
 	fprintf(stderr, "\n\nCreating PXX volumes:\n");
 	for (p = par->files; p; p = p->next)
-		find_file(p, 1);
+		if (p->status & 0x1)
+			find_file(p, 1);
 
 	if (restore_files(par->files, par->volumes) < 0)
 		return 0;

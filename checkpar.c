@@ -70,7 +70,7 @@ check_pxx(pxx_t *pxx)
 int
 check_par(par_t *par)
 {
-	i64 m, mvol, tvol;
+	i64 m, mvol, tvol, nrm;
 	pfile_t *p, *v;
 	int fail = 0;
 
@@ -88,14 +88,19 @@ check_par(par_t *par)
 	}
 
 	fprintf(stderr, "Looking for data files\n");
-	m = 0;
+	m = nrm = 0;
 	for (p = par->files; p; p = p->next) {
 		if (!find_file(p, 1)) {
-			m++;
+			if (p->status & 0x1) m++;
+			else nrm++;
 		}
 	}
 	if ((m == 0) && (!cmd.rvol || (tvol == mvol))) {
-		fprintf(stderr, "\nAll files found\n");
+		if (nrm > 0) {
+			fprintf(stderr, "\nMissing some unprotected files\n");
+		} else {
+			fprintf(stderr, "\nAll files found\n");
+		}
 		return 0;
 	}
 	/*\ We don't do old-version PAR files \*/
@@ -145,7 +150,7 @@ check_par(par_t *par)
 	if (cmd.action == ACTION_CHECK) {
 		fprintf(stderr, "\n\nRestorable:\n");
 		for (p = par->files; p; p = p->next) {
-			if (!p->match) {
+			if (!p->match && (p->status & 0x1)) {
 				fprintf(stderr, "  %-40s - restorable\n",
 						stuni(p->filename));
 			}

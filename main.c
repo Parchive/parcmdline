@@ -65,6 +65,7 @@ main(int argc, char *argv[])
 	cmd.pervol = 1;
 	cmd.pxx = 1;
 	cmd.ctrl = 1;
+	cmd.add = 1;
 
 	if (argc == 1) return usage();
 

@@ -881,8 +881,6 @@ write_pxx_header(pxx_t *pxx)
 	pxx->parity_data = pxx->file_list + write_file_entries(0, pxx->files);
 
 	for (i = 0, p = pxx->files; p; p = p->next, i++) {
-		p->status |= 0x1;
-		p->vol_number = 0;
 		if (pxx->parity_data_size < p->file_size)
 			pxx->parity_data_size = p->file_size;
 	}
@@ -955,9 +953,22 @@ restore_files(pfile_t *files, pfile_t *volumes)
 {
 	int N, M, i, j;
 	xfile_t *in, *out;
-	pfile_t *p, *v;
+	pfile_t *p, *v, **pp;
 	int fail = 0;
 	size_t size;
+
+	/*\ Copy files that have their status bit set \*/
+	p = files;
+	pp = &files;
+	*pp = 0;
+	for (; p; p = p->next) {
+		if (!(p->status & 0x1))
+			continue;
+		CNEW(*pp, 1);
+		COPY(*pp, p, 1);
+		pp = &((*pp)->next);
+		*pp = 0;
+	}
 
 	size = 0;
 	/*\ Count number of files \*/
@@ -993,7 +1004,8 @@ restore_files(pfile_t *files, pfile_t *volumes)
 					0, 0, 0);
 			if (!pxx) {
 				fprintf(stderr, "Internal error!\n");
-				return -1;
+				in[i].f = 0;
+				continue;
 			}
 			in[i].filenr = 0;
 			in[i].volnr = pxx->vol_number;
@@ -1140,6 +1152,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 					stuni(v->filename));
 		}
 	}
+	free_file_list(files);
 	if (fail) {
 		fprintf(stderr, "\nErrors occurred.\n\n");
 		return -1;
