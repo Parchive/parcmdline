@@ -18,9 +18,9 @@ struct xfile_s {
 	i64 size;
 	file_t f;
 	u16 filenr;
-	u16 volnr;
+	u16 *files;
 };
 
-int recreate(xfile_t *in, int N, xfile_t *out, int M);
+int recreate(xfile_t *in, xfile_t *out);
 
 #endif

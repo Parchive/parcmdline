@@ -955,6 +955,7 @@ restore_files(pfile_t *files, pfile_t *volumes)
 	pfile_t *p, *v, **pp;
 	int fail = 0;
 	size_t size;
+	u16 *fnrs;
 
 	/*\ Copy files that have their status bit set \*/
 	p = files;
@@ -984,14 +985,19 @@ restore_files(pfile_t *files, pfile_t *volumes)
 		if (!find_file(v, 0) || v->crt)
 			M++;
 
-	NEW(in, N);
-	NEW(out, M);
+	NEW(in, N + 1);
+	NEW(out, M + 1);
+	NEW(fnrs, N + 1);
+
+	for (i = 0; i < N; i++)
+		fnrs[i] = i + 1;
+	fnrs[N] = 0;
 
 	/*\ Fill in input files \*/
 	for (i = 0, p = files, v = volumes; i < N; i++, p = p->next) {
 		if (p->match) {
 			in[i].filenr = i + 1;
-			in[i].volnr = 0;
+			in[i].files = 0;
 			in[i].size = p->file_size;
 			in[i].f = file_open(p->match->filename, 0);
 		} else {
@@ -1006,9 +1012,9 @@ restore_files(pfile_t *files, pfile_t *volumes)
 				in[i].f = 0;
 				continue;
 			}
-			in[i].filenr = 0;
-			in[i].volnr = pxx->vol_number;
-			if (pxx->version < 0x80) in[i].volnr = 1;
+			in[i].filenr = pxx->vol_number;
+			in[i].files = fnrs;
+			if (pxx->version < 0x80) in[i].filenr = 1;
 			in[i].size = pxx->parity_data_size;
 			in[i].f = pxx->f;
 			pxx->f = 0;
@@ -1016,13 +1022,14 @@ restore_files(pfile_t *files, pfile_t *volumes)
 			v = v->next;
 		}
 	}
+	in[i].filenr = 0;
 
 	/*\ Fill in output files \*/
 	for (i = j = 0, p = files; p; p = p->next, i++) {
 		if (p->match) continue;
 		out[j].size = p->file_size;
 		out[j].filenr = i + 1;
-		out[j].volnr = 0;
+		out[j].files = 0;
 		out[j].f = 0;
 		/*\ Open output file, but check we don't overwrite anything \*/
 		if (move_away(p->filename, ".bad")) {
@@ -1077,20 +1084,21 @@ restore_files(pfile_t *files, pfile_t *volumes)
 					stuni(pxx->filename));
 			v->filename = v->match->filename;
 		}
-		out[j].filenr = 0;
 		out[j].size = size;
-		out[j].volnr = pxx->vol_number;
+		out[j].filenr = pxx->vol_number;
+		out[j].files = fnrs;
 		free_pxx(pxx);
 		j++;
 	}
+	out[j].filenr = 0;
 
-	if (!fail && !recreate(in, N, out, j))
+	if (!fail && !recreate(in, out))
 		fail |= 1;
 
-	for (i = 0; i < N; i++)
+	for (i = 0; in[i].filenr; i++)
 		file_close(in[i].f);
-	for (i = 0; i < j; i++) {
-		if (out[i].volnr && cmd.ctrl)
+	for (i = 0; out[i].filenr; i++) {
+		if (out[i].files && cmd.ctrl)
 			file_add_md5(out[i].f, 0x0030, 0x0040);
 		file_close(out[i].f);
 	}

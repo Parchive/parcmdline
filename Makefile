@@ -5,7 +5,7 @@ par: checkpar.o makepar.o rwpar.o rs.o md5.o fileops.o main.o
 	$(CC) -o $@ $^
 
 clean:
-	rm -f core par *.o
+	rm -f core par par.exe *.o
 
 all: par
 

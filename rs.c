@@ -78,9 +78,9 @@ make_lut(u8 lut[0x100], int m)
 #define MULS(i,j) (muls[((i) * N) + (j)])
 
 int
-recreate(xfile_t *in, int N, xfile_t *out, int M)
+recreate(xfile_t *in, xfile_t *out)
 {
-	int i, j, k, R;
+	int i, j, k, l, M, N, R;
 	u8 *mt, *imt, *muls;
 	u8 buf[0x4000], *work;
 	size_t s, size;
@@ -89,33 +89,75 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 	ginit();
 
 	/*\ Count number of recovery files \*/
-	for (i = R = 0; i < N; i++)
-		if (in[i].volnr)
+	for (i = N = R = 0; in[i].filenr; i++) {
+		if (in[i].files) {
 			R++;
+			/*\ Get max. matrix row size \*/
+			for (k = 0; in[i].files[k]; k++) {
+				if (in[i].files[k] > N)
+					N = in[i].files[k];
+			}
+		} else {
+			if (in[i].filenr > N)
+				N = in[i].filenr;
+		}
+	}
 
-	NEW(mt, R * N);
+	/*\ Count number of volumes to output \*/
+	for (i = j = M = 0; out[i].filenr; i++) {
+		M++;
+		if (out[i].files) {
+			j++;
+			/*\ Get max. matrix row size \*/
+			for (k = 0; out[i].files[k]; k++) {
+				if (out[i].files[k] > N)
+					N = out[i].files[k];
+			}
+		} else {
+			if (out[i].filenr > N)
+				N = out[i].filenr;
+		}
+	}
+	R += j;
+	N += j;
+
+	CNEW(mt, R * N);
 	CNEW(imt, R * N);
 
 	/*\ Fill in matrix rows for recovery files \*/
-	for (i = j = 0; j < R; j++) {
-		while (!in[i].volnr)
-			i++;
-		for (k = 0; k < N; k++)
-			MT(j, k) = gpow(k + 1, in[i].volnr - 1);
+	for (i = j = 0; in[i].filenr; i++) {
+		if (!in[i].files)
+			continue;
+		for (k = 0; in[i].files[k]; k++)
+			MT(j, in[i].files[k]-1) = gpow(k+1, in[i].filenr - 1);
 		IMT(j, i) = 1;
-		i++;
+		j++;
+	}
+
+	/*\ Fill in matrix rows for output recovery files \*/
+	for (i = 0, l = N; out[i].filenr; i++) {
+		if (!out[i].files)
+			continue;
+		for (k = 0; out[i].files[k]; k++)
+			MT(j, out[i].files[k]-1) = gpow(k+1, out[i].filenr - 1);
+		--l;
+		/*\ Fudge filenr \*/
+		out[i].filenr = l + 1;
+		MT(j, l) = 1;
+		j++;
 	}
 
 	/*\ Use (virtual) rows from data files to eliminate columns \*/
-	for (i = 0; i < N; i++) {
-		if (in[i].volnr)
+	for (i = 0; in[i].filenr; i++) {
+		if (in[i].files)
 			continue;
 		k = in[i].filenr - 1;
-		/*\ Both mt and imt only have a 1 at (k,k), so subtracting
-		|*| the row means subtracting mt(k,j) from imt(k,j)
-		|*| and then setting mt(k,j) to zero.  \*/
+		/*\ MT would have a 1 at (i, k), IMT a 1 at (i, i)
+		|*| IMT(j,i) -= MT(j,k) * IMT(i,i)  (is MT(j, k))
+		|*|  MT(j,k) -= MT(j,k) *  MT(i,k)  (becomes 0)
+		\*/
 		for (j = 0; j < R; j++) {
-			IMT(j, k) ^= MT(j, k);
+			IMT(j, i) ^= MT(j, k);
 			MT(j, k) = 0;
 		}
 	}
@@ -126,9 +168,10 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 	for (i = 0; i < R; i++) {
 		int d, l;
 		/*\ Find first non-zero entry \*/
-		for (l = 0; !MT(i, l); l++)
+		for (l = 0; (l < N) && !MT(i, l); l++)
 			;
 		d = MT(i, l);
+		if (!d) continue;
 		/*\ Scale the matrix so MT(i, l) becomes 1 \*/
 		for (j = 0; j < N; j++) {
 			MT(i, j) = gdiv(MT(i, j), d);
@@ -146,31 +189,30 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 	}
 
 	/*\ Make the multiplication tables \*/
-	NEW(muls, M * N);
+	CNEW(muls, M * N);
 
-	for (i = 0; i < M; i++) {
-		if (out[i].volnr) {
-			int d;
-			/*\ Checksum #x: F(x), ... \*/
-			for (k = 0; k < N; k++)
-				MULS(i, k) = gpow(k + 1, out[i].volnr - 1);
-			/*\ But every missing file is
-			|*| replaced by IMT(m) * F(x,m) \*/
-			for (j = 0; j < R; j++) {
-				for (k = 0; !MT(j,k); k++)
-					;
-				d = gpow(k + 1, out[i].volnr - 1);
-				MULS(i, k) ^= d;
-				for (k = 0; k < N; k++)
-					MULS(i, k) ^= gmul(d, IMT(j, k));
-			}
-		} else {
-			/*\ File #x: The row IMT(j) for which MT(j,x) = 1 \*/
-			for (j = 0; !MT(j, out[i].filenr - 1); j++)
+	for (i = 0; out[i].filenr; i++) {
+		/*\ File #x: The row IMT(j) for which MT(j,x) = 1 \*/
+		for (j = 0; j < R; j++) {
+			k = out[i].filenr - 1;
+			if (MT(j, k) != 1)
+				continue;
+			/*\ All other values should be 0 \*/
+			for (k = 0; !MT(j, k); k++)
 				;
-			for (k = 0; k < N; k++)
-				MULS(i, k) = IMT(j, k);
+			if (k != out[i].filenr - 1)
+				continue;
+			for (k++; (k < N) && !MT(j, k); k++)
+				;
+			if (k != N)
+				continue;
+			break;
 		}
+		/*\ Did we find a suitable row ? \*/
+		if (j == R)
+			continue;
+		for (k = 0; k < N; k++)
+			MULS(i, k) = IMT(j, k);
 	}
 	free(mt);
 	free(imt);
@@ -178,9 +220,27 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 	/*\ Restore all the files at once \*/
 	NEW(work, sizeof(buf) * M);
 
+	/*\ Check for rows and columns with all-zeroes \*/
+	for (i = 0; i < M; i++) {
+		for (j = 0; j < N; j++)
+			if (MULS(i, j))
+				break;
+		if (j == N)
+			in[i].size = 0;
+	}
+
+	/*\ Check for rows and columns with all-zeroes \*/
+	for (j = 0; j < N; j++) {
+		for (i = 0; i < M; j++)
+			if (MULS(i, j))
+				break;
+		if (i == M)
+			out[j].size = 0;
+	}
+
 	/*\ Find out how much we should process in total \*/
 	size = 0;
-	for (i = 0; i < M; i++)
+	for (i = 0; out[i].filenr; i++)
 		if (size < out[i].size)
 			size = out[i].size;
 
@@ -201,7 +261,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 
 		/*\ See how much we should read \*/
 		memset(work, 0, sizeof(buf) * M);
-		for (i = 0; i < N; i++) {
+		for (i = 0; in[i].filenr; i++) {
 			tr = sizeof(buf);
 			if (tr > (in[i].size - s))
 				tr = in[i].size - s;
@@ -214,7 +274,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 				free(work);
 				return 0;
 			}
-			for (j = 0; j < M; j++) {
+			for (j = 0; out[j].filenr; j++) {
 				u8 lut[0x100];
 				if (s >= out[j].size) continue;
 				if (!MULS(j, i)) continue;
@@ -226,7 +286,7 @@ recreate(xfile_t *in, int N, xfile_t *out, int M)
 					p[q] ^= lut[buf[q]];
 			}
 		}
-		for (j = 0; j < M; j++) {
+		for (j = 0; out[j].filenr; j++) {
 			if (s >= out[j].size) continue;
 			tr = sizeof(buf);
 			if (tr > (out[j].size - s))
