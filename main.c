@@ -30,6 +30,8 @@ usage(void)
 "   par c(heck)   [options] <par file>         : Check parity archive\n"
 "   par r(ecover) [options] <par file>         : Restore missing volumes\n"
 "   par a(dd)     [options] <par file> [files] : Add files to parity archive\n"
+" Advanced:\n"
+"   par m(ix)    [options] : Try to restore from all parity files at once\n"
 "\n"
 "Options: (Can be turned off with '+')\n"
 "    -m   : Move existing files out of the way\n"
@@ -38,6 +40,7 @@ usage(void)
 "    -p<n>: Number of files per parity volume\n"
 " or -n<n>: Number of parity volumes to create\n"
 "    -d   : Search for duplicate files\n"
+"    -k   : Keep broken files\n"
 "    +i   : Do not add following files to parity volumes\n"
 "    +c   : Do not create parity volumes\n"
 "    +H   : Do not check control hashes\n"
@@ -127,6 +130,9 @@ main(int argc, char *argv[])
 			case 'H':
 				cmd.ctrl = cmd.plus;
 				break;
+			case 'k':
+				cmd.keep = cmd.plus;
+				break;
 			case '?':
 			case 'h':
 				return usage();
@@ -140,13 +146,21 @@ main(int argc, char *argv[])
 		if (!cmd.action) {
 			switch (argv[1][0]) {
 			case 'c':
+			case 'C':
 				cmd.action = ACTION_CHECK;
 				break;
+			case 'm':
+			case 'M':
+				cmd.action = ACTION_MIX;
+				break;
 			case 'r':
+			case 'R':
 				cmd.action = ACTION_RESTORE;
 				break;
 			case 'a':
+			case 'A':
 				cmd.action = ACTION_ADD;
+				break;
 				break;
 			default:
 				fprintf(stderr, "Unknown command: '%s'\n",
@@ -180,12 +194,27 @@ main(int argc, char *argv[])
 		case ACTION_ADDING:
 			par_add_file(par, find_file_path(argv[1]));
 			break;
+		case ACTION_MIX:
+			fprintf(stderr, "Unknown argument: '%s'\n", argv[1]);
+			break;
+		}
+	}
+	if (cmd.action == ACTION_MIX) {
+		par = find_all_par_files();
+		if (par) {
+			fprintf(stderr, "\nChecking:\n");
+			if (check_par(par) < 0)
+				fail = 1;
+			free_par(par);
+			par = 0;
+		} else {
+			fail = 2;
 		}
 	}
 	if (par) {
 		if (cmd.pxx && !par_make_pxx(par))
 			fail |= 1;
-		if (!fail && !write_par_header(par))
+		if (!par->vol_number && !write_par_header(par))
 			fail |= 1;
 		free_par(par);
 	}

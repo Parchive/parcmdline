@@ -26,11 +26,7 @@
 void
 unistr(const char *str, u16 *buf)
 {
-	do {
-		((char *)(buf))[0] = *str;
-		((char *)(buf))[1] = 0;
-		buf++;
-	} while (*str++);
+	do *buf++ = *str; while (*str++);
 }
 
 /*\
@@ -67,7 +63,7 @@ stuni(const u16 *str)
 	}
 	/*\ For now, just copy the low byte \*/
 	for (i = 0; str[i]; i++)
-		buf[i] = ((char *)(str + i))[0];
+		buf[i] = str[i];
 	buf[i] = 0;
 	return buf;
 }
@@ -148,68 +144,16 @@ file_exists(u16 *file)
 }
 
 int
+file_delete(u16 *file)
+{
+	return remove(stuni(file));
+}
+
+int
 file_seek(file_t f, i64 off)
 {
 	return fseek(f, off, SEEK_SET);
 }
-
-/*\ Calculate md5 sums on a file \*/
-ssize_t
-file_md5(u16 *file, md5 block)
-{
-	FILE *f;
-	ssize_t i;
-
-	f = fopen(stuni(file), "rb");
-	if (!f) return 0;
-	i = md5_stream(f, block);
-	fclose(f);
-	return i;
-}
-
-int
-file_md5_16k(u16 *file, md5 block)
-{
-	u8 buf[16384];
-	file_t f;
-	ssize_t s;
-
-	f = file_open(file, 0);
-	if (!f) return 0;
-	s = file_read(f, buf, sizeof(buf));
-	file_close(f);
-	if (s < 0) return 0;
-	return (md5_buffer(buf, s, block) != 0);
-}
-
-/*\ Calculate the md5sum of a file from offset 'off',
-|*| put it at offset 'md5off'
-\*/
-int
-file_add_md5(file_t f, i64 md5off, i64 off)
-{
-	md5 hash;
-	ssize_t i;
-
-	if (file_seek(f, off) < 0)
-		return 0;
-	i = md5_stream(f, hash);
-	if (i < 0) return 0;
-	if (file_seek(f, md5off) < 0)
-		return 0;
-	file_write(f, hash, sizeof(hash));
-	return 1;
-}
-
-/*\ Get the md5sum over part of a file.  \*/
-int
-file_get_md5(file_t f, i64 off, md5 block)
-{
-	if (file_seek(f, off) < 0)
-		return 0;
-	return (md5_stream(f, block) != 0);
-}
-
 
 /*\ Read a directory.
 |*|  Returns a linked list of file entries.
@@ -247,3 +191,64 @@ file_write(file_t f, void *buf, i64 n)
 	if (!f) return 0;
 	return fwrite(buf, 1, n, f);
 }
+
+/*\ Calculate md5 sums on a file \*/
+ssize_t
+file_md5(u16 *file, md5 block)
+{
+	FILE *f;
+	ssize_t i;
+
+	f = fopen(stuni(file), "rb");
+	if (!f) return 0;
+	i = md5_stream(f, block);
+	fclose(f);
+	return i;
+}
+
+int
+file_md5_16k(u16 *file, md5 block)
+{
+	u8 buf[16384];
+	file_t f;
+	ssize_t s;
+
+	f = file_open(file, 0);
+	if (!f) return 0;
+	s = file_read(f, buf, sizeof(buf));
+	file_close(f);
+	if (s < 0) return 0;
+	return (md5_buffer(buf, s, block) != 0);
+}
+
+/*\ Calculate the md5sum of a file from offset 'off',
+|*| put it at offset 'md5off'
+|*| Also, check the file size.  Return 0 on failure.
+\*/
+int
+file_add_md5(file_t f, i64 md5off, i64 off, i64 len)
+{
+	md5 hash;
+
+	if (file_seek(f, off) < 0)
+		return 0;
+	if (md5_stream(f, hash) < 0)
+		return 0;
+	/*\ Filepointer should be at EOF now \*/
+	if ((i64)ftell(f) != len)
+		return 0;
+	if (file_seek(f, md5off) < 0)
+		return 0;
+	file_write(f, hash, sizeof(hash));
+	return 1;
+}
+
+/*\ Get the md5sum over part of a file.  \*/
+int
+file_get_md5(file_t f, i64 off, md5 block)
+{
+	if (file_seek(f, off) < 0)
+		return 0;
+	return (md5_stream(f, block) != 0);
+}
+

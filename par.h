@@ -51,7 +51,7 @@ struct pfile_s {
 	u16 *filename;
 	file_t f;
 	hfile_t *match;
-	int crt;
+	u16 *fnrs;
 };
 
 extern struct cmdline {
@@ -68,11 +68,13 @@ extern struct cmdline {
 	int add :1;	/*\ Don't add files to PXX volumes \*/
 	int pxx :1;	/*\ Create PXX volumes \*/
 	int ctrl :1;	/*\ Check/create control hash \*/
+	int keep :1;	/*\ Keep broken files \*/
 	int dash :1;	/*\ End of cmdline switches \*/
 } cmd;
 
 #define ACTION_CHECK	01	/*\ Check PAR files \*/
 #define ACTION_RESTORE	02	/*\ Restore missing files \*/
+#define ACTION_MIX	03	/*\ Try to use a mix of all PAR files \*/
 #define ACTION_ADD	11	/*\ Create a PAR archive ... \*/
 #define ACTION_ADDING	12	/*\ ... and add files to it. \*/
 
@@ -80,5 +82,7 @@ extern struct cmdline {
 #define IS_PAR(x) (((x).magic) == PAR_MAGIC)
 
 #define CMP_MD5(a,b) (!memcmp((a), (b), sizeof(md5)))
+
+#define USE_FILE(p) ((p)->status & 0x1)
 
 #endif /* PAR_H */

@@ -15,6 +15,7 @@
 #include "fileops.h"
 #include "rs.h"
 #include "util.h"
+#include "par.h"
 
 /*\
 |*| Calculations over a Galois Field, GF(8)
@@ -73,35 +74,36 @@ make_lut(u8 lut[0x100], int m)
 	lut[0] = 0;
 }
 
-#define MT(i,j)     (mt[((i) * N) + (j)])
+#define MT(i,j)     (mt[((i) * Q) + (j)])
 #define IMT(i,j)   (imt[((i) * N) + (j)])
 #define MULS(i,j) (muls[((i) * N) + (j)])
 
 int
 recreate(xfile_t *in, xfile_t *out)
 {
-	int i, j, k, l, M, N, R;
+	int i, j, k, l, M, N, Q, R;
 	u8 *mt, *imt, *muls;
 	u8 buf[0x4000], *work;
-	size_t s, size;
-	size_t perc;
+	i64 s, size;
+	i64 perc;
 
 	ginit();
 
 	/*\ Count number of recovery files \*/
-	for (i = N = R = 0; in[i].filenr; i++) {
+	for (i = Q = R = 0; in[i].filenr; i++) {
 		if (in[i].files) {
 			R++;
 			/*\ Get max. matrix row size \*/
 			for (k = 0; in[i].files[k]; k++) {
-				if (in[i].files[k] > N)
-					N = in[i].files[k];
+				if (in[i].files[k] > Q)
+					Q = in[i].files[k];
 			}
 		} else {
-			if (in[i].filenr > N)
-				N = in[i].filenr;
+			if (in[i].filenr > Q)
+				Q = in[i].filenr;
 		}
 	}
+	N = i;
 
 	/*\ Count number of volumes to output \*/
 	for (i = j = M = 0; out[i].filenr; i++) {
@@ -110,18 +112,18 @@ recreate(xfile_t *in, xfile_t *out)
 			j++;
 			/*\ Get max. matrix row size \*/
 			for (k = 0; out[i].files[k]; k++) {
-				if (out[i].files[k] > N)
-					N = out[i].files[k];
+				if (out[i].files[k] > Q)
+					Q = out[i].files[k];
 			}
 		} else {
-			if (out[i].filenr > N)
-				N = out[i].filenr;
+			if (out[i].filenr > Q)
+				Q = out[i].filenr;
 		}
 	}
 	R += j;
-	N += j;
+	Q += j;
 
-	CNEW(mt, R * N);
+	CNEW(mt, R * Q);
 	CNEW(imt, R * N);
 
 	/*\ Fill in matrix rows for recovery files \*/
@@ -135,7 +137,7 @@ recreate(xfile_t *in, xfile_t *out)
 	}
 
 	/*\ Fill in matrix rows for output recovery files \*/
-	for (i = 0, l = N; out[i].filenr; i++) {
+	for (i = 0, l = Q; out[i].filenr; i++) {
 		if (!out[i].files)
 			continue;
 		for (k = 0; out[i].files[k]; k++)
@@ -145,6 +147,19 @@ recreate(xfile_t *in, xfile_t *out)
 		out[i].filenr = l + 1;
 		MT(j, l) = 1;
 		j++;
+	}
+
+	if (cmd.loglevel > 0) {
+		fprintf(stderr, "Matrix input:\n");
+		for (i = 0; i < R; i++) {
+			fprintf(stderr, "| ");
+			for (j = 0; j < Q; j++)
+				fprintf(stderr, "%02x ", MT(i, j));
+			fprintf(stderr, "| ");
+			for (j = 0; j < N; j++)
+				fprintf(stderr, "%02x ", IMT(i, j));
+			fprintf(stderr, "|\n");
+		}
 	}
 
 	/*\ Use (virtual) rows from data files to eliminate columns \*/
@@ -162,29 +177,55 @@ recreate(xfile_t *in, xfile_t *out)
 		}
 	}
 
+	if (cmd.loglevel > 0) {
+		fprintf(stderr, "Matrix after data file elimination:\n");
+		for (i = 0; i < R; i++) {
+			fprintf(stderr, "| ");
+			for (j = 0; j < Q; j++)
+				fprintf(stderr, "%02x ", MT(i, j));
+			fprintf(stderr, "| ");
+			for (j = 0; j < N; j++)
+				fprintf(stderr, "%02x ", IMT(i, j));
+			fprintf(stderr, "|\n");
+		}
+	}
+
 	/*\ Eliminate columns using the remaining rows, so we get I.
 	|*| The accompanying matrix will be the inverse
 	\*/
 	for (i = 0; i < R; i++) {
 		int d, l;
 		/*\ Find first non-zero entry \*/
-		for (l = 0; (l < N) && !MT(i, l); l++)
+		for (l = 0; (l < Q) && !MT(i, l); l++)
 			;
+		if (l == Q) continue;
 		d = MT(i, l);
-		if (!d) continue;
 		/*\ Scale the matrix so MT(i, l) becomes 1 \*/
-		for (j = 0; j < N; j++) {
+		for (j = 0; j < Q; j++)
 			MT(i, j) = gdiv(MT(i, j), d);
+		for (j = 0; j < N; j++)
 			IMT(i, j) = gdiv(IMT(i, j), d);
-		}
 		/*\ Eliminate the column in the other matrices \*/
 		for (k = 0; k < R; k++) {
 			if (k == i) continue;
 			d = MT(k, l);
-			for (j = 0; j < N; j++) {
+			for (j = 0; j < Q; j++)
 				MT(k, j) ^= gmul(MT(i, j), d);
+			for (j = 0; j < N; j++)
 				IMT(k, j) ^= gmul(IMT(i, j), d);
-			}
+		}
+	}
+
+	if (cmd.loglevel > 0) {
+		fprintf(stderr, "Matrix after gaussian elimination:\n");
+		for (i = 0; i < R; i++) {
+			fprintf(stderr, "| ");
+			for (j = 0; j < Q; j++)
+				fprintf(stderr, "%02x ", MT(i, j));
+			fprintf(stderr, "| ");
+			for (j = 0; j < N; j++)
+				fprintf(stderr, "%02x ", IMT(i, j));
+			fprintf(stderr, "|\n");
 		}
 	}
 
@@ -202,40 +243,41 @@ recreate(xfile_t *in, xfile_t *out)
 				;
 			if (k != out[i].filenr - 1)
 				continue;
-			for (k++; (k < N) && !MT(j, k); k++)
+			for (k++; (k < Q) && !MT(j, k); k++)
 				;
-			if (k != N)
+			if (k != Q)
 				continue;
 			break;
 		}
 		/*\ Did we find a suitable row ? \*/
-		if (j == R)
+		if (j == R) {
+			out[i].size = 0;
 			continue;
+		}
 		for (k = 0; k < N; k++)
 			MULS(i, k) = IMT(j, k);
 	}
 	free(mt);
 	free(imt);
 
-	/*\ Restore all the files at once \*/
-	NEW(work, sizeof(buf) * M);
-
-	/*\ Check for rows and columns with all-zeroes \*/
-	for (i = 0; i < M; i++) {
-		for (j = 0; j < N; j++)
-			if (MULS(i, j))
-				break;
-		if (j == N)
-			in[i].size = 0;
+	if (cmd.loglevel > 0) {
+		fprintf(stderr, "Multipliers:\n");
+		for (i = 0; i < M; i++) {
+			fprintf(stderr, "| ");
+			for (j = 0; j < N; j++)
+				fprintf(stderr, "%02x ", MULS(i, j));
+			fprintf(stderr, "|\n");
+		}
 	}
 
-	/*\ Check for rows and columns with all-zeroes \*/
+	/*\ Check for columns with all-zeroes \*/
 	for (j = 0; j < N; j++) {
 		for (i = 0; i < M; j++)
 			if (MULS(i, j))
 				break;
+		/*\ This input file isn't used \*/
 		if (i == M)
-			out[j].size = 0;
+			in[j].size = 0;
 	}
 
 	/*\ Find out how much we should process in total \*/
@@ -244,18 +286,21 @@ recreate(xfile_t *in, xfile_t *out)
 		if (size < out[i].size)
 			size = out[i].size;
 
+	/*\ Restore all the files at once \*/
+	NEW(work, sizeof(buf) * M);
+
 	perc = 0;
 	fprintf(stderr, "0%%"); fflush(stderr);
 	/*\ Process all files \*/
 	for (s = 0; s < size; ) {
-		ssize_t tr, r, q;
+		i64 tr, r, q;
 		u8 *p;
 
 		/*\ Display progress \*/
 		while (((s * 50) / size) > perc) {
 			perc++;
 			if (perc % 5) fprintf(stderr, ".");
-			else fprintf(stderr, "%d%%", (perc / 5) * 10);
+			else fprintf(stderr, "%lld%%", (perc / 5) * 10);
 			fflush(stderr);
 		}
 

@@ -17,8 +17,121 @@
 #include "util.h"
 #include "rwpar.h"
 #include "fileops.h"
-#include "endian.h"
 #include "rs.h"
+
+/*\ Endianless fixing code \*/
+
+static i64
+read_i64(void *data)
+{
+	int i;
+	i64 r = 0;
+	u8 *ptr = data;
+
+	for (i = sizeof(i64); --i >= 0; ) {
+		r <<= 8;
+		r += (i64)ptr[i];
+	}
+	return r;
+}
+
+static u32
+read_u32(void *data)
+{
+	int i;
+	u32 r = 0;
+	u8 *ptr = data;
+
+	for (i = sizeof(u32); --i >= 0; ) {
+		r <<= 8;
+		r += (u32)ptr[i];
+	}
+	return r;
+}
+
+/*\ Read N bytes of little-endian u16s \*/
+static void
+read_u16s(u16 *str, void *data, i64 n)
+{
+	u8 *ptr = data;
+	while (--n >= 0) {
+		*str = ptr[0] + (ptr[1] << 8);
+		str++;
+		ptr += 2;
+	}
+}
+
+static void
+write_i64(i64 v, void *data)
+{
+	size_t i;
+	u8 *ptr = data;
+
+	for (i = 0; i < sizeof(i64); i++) {
+		ptr[i] = v & 0xFF;
+		v >>= 8;
+	}
+}
+
+static void
+write_u32(u32 v, void *data)
+{
+	size_t i;
+	u8 *ptr = data;
+
+	for (i = 0; i < sizeof(u32); i++) {
+		ptr[i] = v & 0xFF;
+		v >>= 8;
+	}
+}
+
+/*\ Write N bytes of little-endian u16s \*/
+static void
+write_u16s(u16 *str, void *data, i64 n)
+{
+	u8 *ptr = data;
+	while (--n >= 0) {
+		ptr[0] = (*str) & 0xff;
+		ptr[1] = ((*str) >> 8) & 0xff;
+		str++;
+		ptr += 2;
+	}
+}
+
+/*\ Change endianness to host byte order
+|*| NB: This is a fix in place.  Don't call this twice!
+\*/
+static void
+par_endian_read(par_t *par)
+{
+#ifdef NOT_LITTLE_ENDIAN
+	par->version = read_u32(&par->version);
+	par->client = read_u32(&par->client);
+	par->vol_number = read_i64(&par->vol_number);
+	par->num_files = read_i64(&par->num_files);
+	par->file_list = read_i64(&par->file_list);
+	par->file_list_size = read_i64(&par->file_list_size);
+	par->data = read_i64(&par->data);
+	par->data_size = read_i64(&par->data_size);
+#endif
+}
+
+static void
+par_endian_write(par_t *par, void *data)
+{
+	par_t *p = (par_t *)data;
+	memcpy(p, par, PAR_FIX_HEAD_SIZE);
+#ifdef NOT_LITTLE_ENDIAN
+	write_u32(par->version, &p->version);
+	write_u32(par->client, &p->client);
+	write_i64(par->vol_number, &p->vol_number);
+	write_i64(par->num_files, &p->num_files);
+	write_i64(par->file_list, &p->file_list);
+	write_i64(par->file_list_size, &p->file_list_size);
+	write_i64(par->data, &p->data);
+	write_i64(par->data_size, &p->data_size);
+#endif
+}
 
 static u16 uni_empty[] = { 0 };
 
@@ -342,13 +455,34 @@ find_volume(u16 *name, i64 vol)
 	u16 filename[FILENAME_MAX];
 	size_t i;
 	hfile_t *p, *ret = 0;
+	int nd, v;
 
-	if ((vol < 1) || (vol > 99))
+	if (vol < 1)
 		return 0;
+	nd = 2;
+	for (v = 100; vol >= v; v *= 10)
+		nd++;
 	i = uni_copy(filename, name, FILENAME_MAX);
-	filename[i - 2] = '0' + (vol / 10);
-	filename[i - 1] = '0' + (vol % 10);
+	if ((filename[i-1] < '0') || (filename[i-1] > '9')) {
+		i = i - 2;
+	} else {
+		while ((filename[i-1] >= '0') && (filename[i-1] <= '9'))
+			i--;
+	}
+	if ((i + nd) >= FILENAME_MAX)
+		return 0;
+	i += nd;
 	filename[i] = 0;
+	v = vol;
+	while (--nd >= 0) {
+		filename[--i] = '0' + v % 10;
+		v /= 10;
+	}
+
+	if (!hfile_done) {
+		hash_all_files(".");
+		hfile_done = 1;
+	}
 
 	for (p = hfile; p; p = p->next) {
 		switch (unicode_cmp(p->filename, filename)) {
@@ -361,79 +495,6 @@ find_volume(u16 *name, i64 vol)
 	if (!ret)
 		ret = hfile_add(filename);
 	return ret;
-}
-
-/*\
-|*| Check if the two file lists a and b are equal
-\*/
-static int
-files_equal(pfile_t *a, pfile_t *b)
-{
-	while (a || b) {
-		if (a && !(a->status & 0x1)) {
-			a = a->next;
-			continue;
-		}
-		if (b && !(b->status & 0x1)) {
-			b = b->next;
-			continue;
-		}
-		if (!a || !b) return 0;
-		if (a->file_size != b->file_size) return 0;
-		if (!CMP_MD5(a->hash, b->hash)) return 0;
-		if (!CMP_MD5(a->hash_16k, b->hash_16k)) return 0;
-		a = a->next; b = b->next;
-	}
-	return 1;
-}
-
-/*\
-|*| Find all volumes that have the same set of files,
-|*| but different volume numbers
-\*/
-int
-find_volumes(par_t *par, int tofind)
-{
-	int m;
-	pfile_t *v;
-	hfile_t *p;
-	par_t *tmp;
-
-	v = 0;
-	m = 0;
-	if (par->vol_number) {
-		CNEW(v, 1);
-		v->match = find_file_path(stuni(par->filename));
-		v->vol_number = par->vol_number;
-		m++;
-	}
-	free_file_list(par->volumes);
-	par->volumes = v;
-	if (m >= tofind) return m;
-	fprintf(stderr, "\nLooking for %sPXX volumes:\n",
-			m ? "additional " : "");
-	for (p = hfile; p && (m < tofind); p = p->next) {
-		tmp = read_par_header(stuni(p->filename), 0, 0, 1);
-		if (!tmp) continue;
-		if (tmp->vol_number && files_equal(tmp->files, par->files)) {
-			for (v = par->volumes; v; v = v->next) {
-				if (v->vol_number == tmp->vol_number)
-					break;
-			}
-			if (!v) {
-				CNEW(v, 1);
-				v->match = p;
-				v->vol_number = tmp->vol_number;
-				v->next = par->volumes;
-				par->volumes = v;
-				m++;
-				fprintf(stderr, "  %-40s - OK\n",
-					stuni(p->filename));
-			}
-		}
-		free_par(tmp);
-	}
-	return m;
 }
 
 /*\
@@ -489,7 +550,7 @@ read_pfile(pfile_t *file, u8 *ptr)
 	COPY(file->hash_16k, pf->hash_16k, sizeof(md5));
 	l = (i - FILE_ENTRY_FIX_SIZE) / 2;
 	NEW(file->filename, l + 1);
-	COPY(file->filename, pf->filename, l);
+	read_u16s(file->filename, &pf->filename, l);
 	file->filename[l] = 0;
 
 	return i;
@@ -555,6 +616,14 @@ read_par_header(char *file, int create, i64 vol, int silent)
 			if (!silent)
 				perror("Error opening PAR file");
 			return 0;
+		}
+		if (!vol) {
+			/*\ Guess volume number from last digits \*/
+			char *p = file + strlen(file) - 1;
+			while ((p >= file) && (*p >= '0') && (*p <= '9'))
+				p--;
+			while (*++p)
+				vol = vol * 10 + (*p - '0');
 		}
 		return create_par_header(file, vol);
 	}
@@ -628,6 +697,8 @@ free_file_list(pfile_t *list)
 	pfile_t *next;
 
 	while (list) {
+		if (list->f) file_close(list->f);
+		if (list->fnrs) free(list->fnrs);
 		next = list->next;
 		free(list);
 		list = next;
@@ -640,24 +711,27 @@ free_par(par_t *par)
 	free_file_list(par->files);
 	free_file_list(par->volumes);
 	free(par->filename);
+	if (par->f) file_close(par->f);
 	free(par);
 }
 
 /*\
 |*| Write out a PAR file entry from a file struct
 \*/
-static void
+static i64
 write_pfile(pfile_t *file, pfile_entr_t *pf)
 {
 	i64 i;
 
-	i = FILE_ENTRY_FIX_SIZE + uni_sizeof(file->filename);
+	i = uni_sizeof(file->filename);
 
-	write_i64(i, &pf->size);
+	write_i64(FILE_ENTRY_FIX_SIZE + i, &pf->size);
 	write_i64(file->status, &pf->status);
 	write_i64(file->file_size, &pf->file_size);
 	COPY(pf->hash, file->hash, sizeof(md5));
 	COPY(pf->hash_16k, file->hash_16k, sizeof(md5));
+	write_u16s(file->filename, &pf->filename, i / 2);
+	return FILE_ENTRY_FIX_SIZE + i;
 }
 
 /*\
@@ -666,22 +740,24 @@ write_pfile(pfile_t *file, pfile_entr_t *pf)
 static i64
 write_file_entries(file_t f, pfile_t *files)
 {
-	i64 tot, t;
+	i64 tot, t, m;
 	pfile_t *p;
-	pfile_entr_t pfe;
+	pfile_entr_t *pfe;
 
-	tot = 0;
+	tot = m = 0;
 	for (p = files; p; p = p->next) {
-		tot += FILE_ENTRY_FIX_SIZE
-		    + uni_sizeof(p->filename);
+		t = FILE_ENTRY_FIX_SIZE + uni_sizeof(p->filename);
+		tot += t;
+		if (m < t) m = t;
 	}
+	pfe = (pfile_entr_t *)malloc(m);
 	if (f) {
 		for (p = files; p; p = p->next) {
-			write_pfile(p, &pfe);
-			file_write(f, &pfe, FILE_ENTRY_FIX_SIZE);
-			file_write(f, p->filename, uni_sizeof(p->filename));
+			t = write_pfile(p, pfe);
+			file_write(f, pfe, t);
 		}
 	}
+	free(pfe);
 	return tot;
 }
 
@@ -741,11 +817,197 @@ write_par_header(par_t *par)
 
 	if (par->vol_number == 0) {
 		file_write(f, par->comment, par->data_size);
-		if (cmd.ctrl)
-			file_add_md5(f, 0x0010, 0x0020);
-		file_close(f);
+		if (cmd.ctrl) {
+			if (!file_add_md5(f, 0x0010, 0x0020,
+					par->data + par->data_size))
+			{
+				fprintf(stderr, "      ERROR: %s:",
+						stuni(par->filename));
+				perror("");
+				fprintf(stderr, "  %-40s - FAILED\n",
+						stuni(par->filename));
+				file_close(f);
+				f = 0;
+				if (!cmd.keep) file_delete(par->filename);
+			}
+		}
+		if (f) file_close(f);
 	}
 	return f;
+}
+
+/*\
+|*| Check if the two file lists a and b match.
+|*|  File lists match if they are equal,
+|*|   only counting files which are stored in the parity volume.
+\*/
+static int
+files_match(pfile_t *a, pfile_t *b)
+{
+	/*\ Check if the lists match \*/
+	while (a || b) {
+		if (a && !USE_FILE(a)) {
+			a = a->next;
+			continue;
+		}
+		if (b && !USE_FILE(b)) {
+			b = b->next;
+			continue;
+		}
+		if (!a || !b) return 0;
+		if (a->file_size != b->file_size) return 0;
+		if (!CMP_MD5(a->hash, b->hash)) return 0;
+		a = a->next; b = b->next;
+	}
+	return 1;
+}
+
+u16 *
+file_numbers(pfile_t **list, pfile_t **files)
+{
+	int i, j;
+	pfile_t *p, **qq;
+	u16 *fnrs;
+
+	for (i = 0, p = *files; p; p = p->next)
+		if (USE_FILE(p))
+			i++;
+	NEW(fnrs, i + 1);
+	for (i = 0; *files; ) {
+		if (!USE_FILE(*files)) {
+			files = &((*files)->next);
+			continue;
+		}
+		/*\ Look for a match \*/
+		for (j = 1, qq = list; *qq; qq = &((*qq)->next), j++) {
+			if (!USE_FILE(*qq)) continue;
+			if ((*files)->file_size != (*qq)->file_size) continue;
+			if (!CMP_MD5((*files)->hash, (*qq)->hash)) continue;
+			break;
+		}
+		/*\ No match ? Move the file entry to the tail of the list \*/
+		if (!*qq) {
+			*qq = *files;
+			*files = (*files)->next;
+			(*qq)->next = 0;
+		} else {
+			files = &((*files)->next);
+		}
+		fnrs[i++] = j;
+	}
+	fnrs[i] = 0;
+	return fnrs;
+}
+
+/*\
+|*| Find all volumes that have the same set of files,
+|*| but different volume numbers
+\*/
+int
+find_volumes(par_t *par, int tofind)
+{
+	int m, i;
+	pfile_t *v;
+	hfile_t *p;
+	par_t *tmp;
+
+	v = 0;
+	if (par->vol_number) {
+		CNEW(v, 1);
+		v->match = find_file_path(stuni(par->filename));
+		v->vol_number = par->vol_number;
+		v->file_size = par->data_size;
+		v->fnrs = file_numbers(&par->files, &par->files);
+		v->f = par->f;
+		v->next = par->volumes;
+		par->volumes = v;
+	} else {
+		file_close(par->f);
+	}
+	par->f = 0;
+	for (m = 0, v = par->volumes; v; v = v->next)
+		m++;
+	if (m >= tofind)
+		return m;
+	fprintf(stderr, "\nLooking for %sPXX volumes:\n",
+		m ? "additional " : "");
+
+	if (!hfile_done) {
+		hash_all_files(".");
+		hfile_done = 1;
+	}
+
+	for (p = hfile; p; p = p->next) {
+		tmp = read_par_header(stuni(p->filename), 0, 0, 1);
+		if (!tmp) continue;
+		if (tmp->vol_number && files_match(par->files, tmp->files)) {
+			for (v = par->volumes; v; v = v->next)
+				if (v->vol_number == tmp->vol_number)
+					break;
+			if (v) continue;
+			CNEW(v, 1);
+			v->match = p;
+			v->vol_number = tmp->vol_number;
+			v->file_size = tmp->data_size;
+			v->fnrs = file_numbers(&par->files, &tmp->files);
+			v->f = tmp->f;
+			tmp->f = 0;
+			v->next = par->volumes;
+			par->volumes = v;
+			m++;
+			fprintf(stderr, "  %-40s - OK\n",
+				stuni(p->filename));
+		}
+		free_par(tmp);
+		if (m >= tofind)
+			break;
+	}
+	return m;
+}
+
+/*\
+|*| Find all volumes in the current directory.
+\*/
+par_t *
+find_all_par_files(void)
+{
+	par_t *par, *tmp;
+	pfile_t *v;
+	hfile_t *p;
+
+	par = create_par_header("", 0);
+
+	fprintf(stderr, "Looking for PAR archives:\n");
+
+	if (!hfile_done) {
+		hash_all_files(".");
+		hfile_done = 1;
+	}
+
+	for (p = hfile; p; p = p->next) {
+		tmp = read_par_header(stuni(p->filename), 0, 0, 1);
+		if (!tmp)
+			continue;
+		if (tmp->vol_number) {
+			CNEW(v, 1);
+			v->match = p;
+			v->vol_number = tmp->vol_number;
+			v->file_size = tmp->data_size;
+			v->fnrs = file_numbers(&par->files, &tmp->files);
+			v->f = tmp->f;
+			tmp->f = 0;
+			v->next = par->volumes;
+			par->volumes = v;
+			fprintf(stderr, "  %-40s - FOUND\n",
+					stuni(p->filename));
+		}
+		free_par(tmp);
+	}
+	if (!par->volumes) {
+		free_par(par);
+		return 0;
+	}
+	return par;
 }
 
 /*\
@@ -754,86 +1016,85 @@ write_par_header(par_t *par)
 int
 restore_files(pfile_t *files, pfile_t *volumes)
 {
-	int N, M, i, j;
+	int N, M, i;
 	xfile_t *in, *out;
-	pfile_t *p, *v, **pp;
+	pfile_t *p, *v, **pp, **qq;
 	int fail = 0;
 	size_t size;
-	u16 *fnrs;
+	pfile_t *mis_f, *mis_v;
 
-	/*\ Copy files that have their status bit set \*/
-	p = files;
-	pp = &files;
-	*pp = 0;
-	for (; p; p = p->next) {
-		if (!(p->status & 0x1))
-			continue;
-		CNEW(*pp, 1);
-		COPY(*pp, p, 1);
-		pp = &((*pp)->next);
-		*pp = 0;
-	}
-
+	/*\ Separate out missing files \*/
 	size = 0;
-	/*\ Count number of files \*/
-	for (M = N = 0, p = files; p; p = p->next) {
-		N++;
-		if (p->file_size > size)
-			size = p->file_size;
-		if (!find_file(p, 0))
-			M++;
+	mis_f = 0;
+	for (i = 1, pp = &files, qq = &mis_f; *pp; i++) {
+		(*pp)->vol_number = i;
+		if ((*pp)->file_size > size)
+			size = (*pp)->file_size;
+		if (!find_file(*pp, 0) && USE_FILE(*pp)) {
+			*qq = *pp;
+			*pp = (*pp)->next;
+			(*qq)->next = 0;
+			qq = &((*qq)->next);
+		} else {
+			pp = &((*pp)->next);
+		}
 	}
 
-	/*\ Count missing volumes \*/
-	for (v = volumes; v; v = v->next)
-		if (!find_file(v, 0) || v->crt)
-			M++;
+	/*\ Separate out missing volumes \*/
+	mis_v = 0;
+	for (pp = &volumes, qq = &mis_v; *pp; ) {
+		if (!(*pp)->f) {
+			*qq = *pp;
+			*pp = (*pp)->next;
+			(*qq)->next = 0;
+			qq = &((*qq)->next);
+		} else {
+			pp = &((*pp)->next);
+		}
+	}
+
+	/*\ Count existing files and volumes \*/
+	for (N = 0, p = files; p; p = p->next)
+		N++;
+	for (v = volumes; v; v = v->next, N++)
+		N++;
+
+	/*\ Count missing files and volumes \*/
+	for (M = 0, p = mis_f; p; p = p->next)
+		M++;
+	for (v = mis_v; v; v = v->next, N++)
+		M++;
 
 	NEW(in, N + 1);
 	NEW(out, M + 1);
-	NEW(fnrs, N + 1);
-
-	for (i = 0; i < N; i++)
-		fnrs[i] = i + 1;
-	fnrs[N] = 0;
 
 	/*\ Fill in input files \*/
-	for (i = 0, p = files, v = volumes; i < N; i++, p = p->next) {
-		if (p->match) {
-			in[i].filenr = i + 1;
-			in[i].files = 0;
-			in[i].size = p->file_size;
-			in[i].f = file_open(p->match->filename, 0);
-		} else {
-			par_t *par;
-
-			while (!v->match || v->crt)
-				v = v->next;
-			par = read_par_header(stuni(v->match->filename),
-					0, 0, 0);
-			if (!par) {
-				fprintf(stderr, "Internal error!\n");
-				in[i].f = 0;
-				continue;
-			}
-			in[i].filenr = par->vol_number;
-			in[i].files = fnrs;
-			in[i].size = par->data_size;
-			in[i].f = par->f;
-			par->f = 0;
-			free_par(par);
-			v = v->next;
+	for (i = 0, p = files; p; p = p->next) {
+		p->f = file_open(p->match->filename, 0);
+		if (!p->f) {
+			fprintf(stderr, "      ERROR: %s:",
+					stuni(p->match->filename));
+			perror("");
+			continue;
 		}
+		in[i].filenr = p->vol_number;
+		in[i].files = 0;
+		in[i].size = p->file_size;
+		in[i].f = p->f;
+		i++;
+	}
+	/*\ Fill in input volumes \*/
+	for (v = volumes; v; v = v->next) {
+		in[i].filenr = v->vol_number;
+		in[i].files = v->fnrs;
+		in[i].size = v->file_size;
+		in[i].f = v->f;
+		i++;
 	}
 	in[i].filenr = 0;
 
 	/*\ Fill in output files \*/
-	for (i = j = 0, p = files; p; p = p->next, i++) {
-		if (p->match) continue;
-		out[j].size = p->file_size;
-		out[j].filenr = i + 1;
-		out[j].files = 0;
-		out[j].f = 0;
+	for (i = 0, p = mis_f; p; p = p->next) {
 		/*\ Open output file, but check we don't overwrite anything \*/
 		if (move_away(p->filename, ".bad")) {
 			fprintf(stderr, "      ERROR: %s: ",
@@ -843,8 +1104,8 @@ restore_files(pfile_t *files, pfile_t *volumes)
 				stuni(p->filename));
 			continue;
 		}
-		out[j].f = file_open(p->filename, 1);
-		if (!out[j].f) {
+		p->f = file_open(p->filename, 1);
+		if (!p->f) {
 			fprintf(stderr, "      ERROR: %s: ",
 				stuni(p->filename));
 			perror("");
@@ -852,16 +1113,19 @@ restore_files(pfile_t *files, pfile_t *volumes)
 				stuni(p->filename));
 			continue;
 		}
-		j++;
+		out[i].size = p->file_size;
+		out[i].filenr = p->vol_number;
+		out[i].files = 0;
+		out[i].f = p->f;
+		i++;
 	}
 
 	/*\ Fill in output volumes \*/
-	for (v = volumes; v; v = v->next) {
+	for (v = mis_v; v; v = v->next) {
 		par_t *par;
-		if (!v->match || !v->crt)
-			continue;
 
-		par = read_par_header(stuni(v->filename), 1, v->vol_number, 0);
+		par = create_par_header(stuni(v->match->filename),
+				v->vol_number);
 		if (!par) {
 			fprintf(stderr, "  %-40s - FAILED\n",
 					stuni(v->match->filename));
@@ -870,68 +1134,83 @@ restore_files(pfile_t *files, pfile_t *volumes)
 		/*\ Copy file list into par file \*/
 		par->files = files;
 		par->data_size = size;
-		out[j].f = write_par_header(par);
+		v->f = write_par_header(par);
 		par->files = 0;
-		if (!out[j].f) {
+		if (!v->f) {
 			fprintf(stderr, "  %-40s - FAILED\n",
 					stuni(par->filename));
 			fail |= 1;
+			free_par(par);
 			continue;
 		}
-		if (v->crt) {
-			v->match = hfile_add(par->filename);
-			fprintf(stderr, "  %-40s - OK\n",
-					stuni(par->filename));
-			v->filename = v->match->filename;
-		}
-		out[j].size = size;
-		out[j].filenr = par->vol_number;
-		out[j].files = fnrs;
+		v->match = hfile_add(par->filename);
+		v->filename = v->match->filename;
+		v->file_size = par->data + par->data_size;
+		out[i].size = par->data_size;
+		out[i].filenr = v->vol_number;
+		out[i].files = v->fnrs;
+		out[i].f = v->f;
 		free_par(par);
-		j++;
+		i++;
 	}
-	out[j].filenr = 0;
+	out[i].filenr = 0;
 
-	if (!fail && !recreate(in, out))
+	if (!recreate(in, out))
 		fail |= 1;
-
-	for (i = 0; in[i].filenr; i++)
-		file_close(in[i].f);
-	for (i = 0; out[i].filenr; i++) {
-		if (out[i].files && cmd.ctrl)
-			file_add_md5(out[i].f, 0x0010, 0x0020);
-		file_close(out[i].f);
-	}
 
 	free(in);
 	free(out);
 
 	/*\ Check resulting data files \*/
-	for (p = files; p; p = p->next) {
-		md5 hash;
-		if (p->match) continue;
-		/*\ Check the md5 sum of the resulting file \*/
-		if (!file_md5(p->filename, hash)) {
+	for (p = mis_f; p; p = p->next) {
+		if (!p->f) continue;
+		file_close(p->f);
+		p->f = 0;
+		p->match = hfile_add(p->filename);
+		if (!hash_file(p->match, HASH)) {
 			fprintf(stderr, "      ERROR: %s:", stuni(p->filename));
 			perror("");
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
 					stuni(p->filename));
 			fail |= 1;
+			if (!cmd.keep) file_delete(p->filename);
 			continue;
 		}
-		if (!CMP_MD5(hash, p->hash)) {
+		if ((p->match->file_size == 0) && (p->file_size != 0)) {
+			fprintf(stderr, "  %-40s - NOT RESTORED\n",
+					stuni(p->filename));
+			fail |= 1;
+			if (!cmd.keep) file_delete(p->filename);
+			continue;
+		}
+		if (!CMP_MD5(p->match->hash, p->hash)) {
 			fprintf(stderr, "      ERROR: %s: Failed md5 check\n",
 					stuni(p->filename));
 			fprintf(stderr, "  %-40s - NOT RESTORED\n",
 					stuni(p->filename));
 			fail |= 1;
+			if (!cmd.keep) file_delete(p->filename);
 			continue;
 		}
 		fprintf(stderr, "  %-40s - RECOVERED\n",
 				stuni(p->filename));
 	}
 
-	free_file_list(files);
+	/*\ Check resulting volumes \*/
+	for (v = mis_v; v; v = v->next) {
+		if (!v->f) continue;
+		if (!file_add_md5(v->f, 0x0010, 0x0020, v->file_size)) {
+			fprintf(stderr, "  %-40s - FAILED\n",
+					stuni(v->filename));
+			fail |= 1;
+			file_close(v->f);
+			v->f = 0;
+			if (!cmd.keep) file_delete(v->filename);
+			continue;
+		}
+		fprintf(stderr, "  %-40s - OK\n", stuni(v->filename));
+	}
+
 	if (fail) {
 		fprintf(stderr, "\nErrors occurred.\n\n");
 		return -1;

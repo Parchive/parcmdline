@@ -26,27 +26,20 @@ int
 check_par(par_t *par)
 {
 	int m;
-	pfile_t *missing = 0, *p;
-
-	file_close(par->f);
-	par->f = 0;
+	pfile_t *p;
 
 	/*\ Look for all the data files \*/
-	m = 0;
-	for (p = par->files; p; p = p->next) {
-		if (!find_file(p, 1)) {
+	for (m = 0, p = par->files; p; p = p->next)
+		if (!find_file(p, 1))
 			m++;
-			missing = p;
-		}
-	}
 	if (m == 0) {
 		fprintf(stderr, "All files found\n");
 		return 0;
 	}
-	if (find_volumes(par, m) < m) {
+	if ((cmd.action != ACTION_MIX) && (find_volumes(par, m) < m)) {
 		fprintf(stderr, "\nToo many missing files:\n");
 		for (p = par->files; p; p = p->next) {
-			if (!p->match)
+			if (!p->match && USE_FILE(p))
 				fprintf(stderr, " %s\n", stuni(p->filename));
 		}
 		return -1;
@@ -57,7 +50,7 @@ check_par(par_t *par)
 	}
 	fprintf(stderr, "\nRestorable:\n");
 	for (p = par->files; p; p = p->next) {
-		if (!p->match)
+		if ((!p->match) && USE_FILE(p))
 			fprintf(stderr, "  %-40s - can be restored\n",
 				stuni(p->filename));
 	}

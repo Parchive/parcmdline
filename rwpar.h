@@ -20,13 +20,15 @@ int hash_file(hfile_t *file, char type);
 int find_file(pfile_t *file, int displ);
 hfile_t * find_file_path(char *path);
 hfile_t * find_volume(u16 *name, i64 vol);
-int find_volumes(par_t *par, int tofind);
 int move_away(u16 *file, const u8 *ext);
 void rename_away(u16 *src, u16 *dst);
 par_t * read_par_header(char *file, int create, i64 vol, int silent);
 void free_file_list(pfile_t *list);
 void free_par(par_t *par);
 file_t write_par_header(par_t *par);
+u16 * file_numbers(pfile_t **list, pfile_t **files);
+int find_volumes(par_t *par, int tofind);
+par_t * find_all_par_files(void);
 int restore_files(pfile_t *files, pfile_t *volumes);
 
 void dump_par(par_t *par);
